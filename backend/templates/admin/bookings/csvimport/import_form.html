@@ -1,0 +1,69 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 20px auto;">
+    <h1>CSV Bestand Importeren</h1>
+    
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <h3>Verwachte CSV Kolommen:</h3>
+        <ul>
+            <li><strong>Eindtijd</strong> - Datum en tijd (dd-mm-yyyy HH:MM)</li>
+            <li><strong>Titel</strong> - Naam van de sessie</li>
+            <li><strong>Omschrijving</strong> - Beschrijving (optioneel)</li>
+            <li><strong>Capaciteit</strong> - Maximum aantal deelnemers</li>
+            <li><strong>Totaal</strong> - Totaal aantal deelnemers</li>
+            <li><strong>Wachtend</strong> - Aantal wachtenden</li>
+            <li><strong>Locatie</strong> - Locatie van de sessie</li>
+            <li><strong>E-mail</strong> - E-mailadres van het lid (verplicht)</li>
+            <li><strong>Schoenmaat</strong> - Schoenmaat van het lid</li>
+            <li><strong>Gemaakt door</strong> - Wie heeft de boeking gemaakt</li>
+            <li><strong>Gewijzigd door</strong> - Wie heeft de boeking gewijzigd</li>
+        </ul>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" style="background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 15px;">
+            {{ form.file.label_tag }}
+            {{ form.file }}
+            {% if form.file.help_text %}
+                <p style="color: #666; font-size: 0.9em; margin-top: 5px;">{{ form.file.help_text }}</p>
+            {% endif %}
+            {% if form.file.errors %}
+                <p style="color: red;">{{ form.file.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label>
+                {{ form.auto_assign_cards }}
+                {{ form.auto_assign_cards.label }}
+            </label>
+            {% if form.auto_assign_cards.help_text %}
+                <p style="color: #666; font-size: 0.9em; margin-top: 5px;">{{ form.auto_assign_cards.help_text }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button type="submit" style="background-color: #417690; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                Importeren
+            </button>
+            <a href="{% url 'admin:sessions_csvimport_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
+                Annuleren
+            </a>
+        </div>
+    </form>
+
+    <div style="margin-top: 30px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+        <h4>⚠️ Let op:</h4>
+        <ul>
+            <li>Dubbele records (zelfde lid + datum + titel) worden overgeslagen</li>
+            <li>Als een lid nog niet bestaat, wordt deze automatisch aangemaakt</li>
+            <li>Als "Automatisch kaarten toewijzen" aan staat, wordt de eerste actieve kaart van het lid gebruikt</li>
+            <li>De import kan even duren bij grote bestanden</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

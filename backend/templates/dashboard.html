@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kangoo Jumping Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .admin-link {
+            display: inline-block;
+            background-color: #417690;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+        .admin-link:hover {
+            background-color: #2e5468;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            font-weight: normal;
+            margin-bottom: 10px;
+        }
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #417690;
+        }
+        .equipment-status {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .equipment-status h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-available { background-color: #d4edda; color: #155724; }
+        .status-in_use { background-color: #cce5ff; color: #004085; }
+        .status-maintenance { background-color: #fff3cd; color: #856404; }
+        .status-broken { background-color: #f8d7da; color: #721c24; }
+        .recent-sessions {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .recent-sessions h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 12px;
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦘 Kangoo Jumping Dashboard</h1>
+            <p>Welkom bij het Kangoo Jumping beheersysteem</p>
+            <a href="/admin/" class="admin-link">Ga naar Admin Panel →</a>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Totaal Leden</h3>
+                <div class="number">{{ total_members }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Totaal Sessies</h3>
+                <div class="number">{{ total_sessions }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Actieve Kaarten</h3>
+                <div class="number">{{ active_cards }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Leden met Kaart</h3>
+                <div class="number">{{ members_with_cards }}</div>
+            </div>
+        </div>
+
+        <div class="equipment-status">
+            <h2>Apparatuur Status</h2>
+            <div class="status-item">
+                <span>Beschikbaar</span>
+                <span class="status-badge status-available">{{ equipment_by_status.available|default:0 }}</span>
+            </div>
+            <div class="status-item">
+                <span>In Gebruik</span>
+                <span class="status-badge status-in_use">{{ equipment_by_status.in_use|default:0 }}</span>
+            </div>
+            <div class="status-item">
+                <span>Onderhoud</span>
+                <span class="status-badge status-maintenance">{{ equipment_by_status.maintenance|default:0 }}</span>
+            </div>
+            <div class="status-item">
+                <span>Defect</span>
+                <span class="status-badge status-broken">{{ equipment_by_status.broken|default:0 }}</span>
+            </div>
+        </div>
+
+        <div class="recent-sessions">
+            <h2>Recente Sessies</h2>
+            {% if recent_sessions %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lid</th>
+                        <th>Sessie</th>
+                        <th>Datum</th>
+                        <th>Kaart</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in recent_sessions %}
+                    <tr>
+                        <td>{{ session.member.full_name }}</td>
+                        <td>{{ session.title }}</td>
+                        <td>{{ session.session_date|date:"d-m-Y H:i" }}</td>
+                        <td>
+                            {% if session.session_card %}
+                                ✓ {{ session.session_card.card_type }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: #666;">Nog geen sessies geïmporteerd.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
