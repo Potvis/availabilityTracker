@@ -148,7 +148,7 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
                     continue
                 
                 # ===== GET SESSION DETAILS =====
-                title = str(row.get('Titel', 'Kangoo Jumping Sessie')).strip() if 'Titel' in df.columns else 'Kangoo Jumping Sessie'
+                title = str(row.get('Titel', 'Jump4Fun Sessie')).strip() if 'Titel' in df.columns else 'Jump4Fun Sessie'
                 description = str(row.get('Omschrijving', '')).strip() if 'Omschrijving' in df.columns and pd.notna(row.get('Omschrijving')) else ''
                 location = str(row.get('Locatie', '')).strip() if 'Locatie' in df.columns and pd.notna(row.get('Locatie')) else ''
                 

@@ -136,7 +136,7 @@ class CSVImportAdmin(admin.ModelAdmin):
         context = {
             'form': form,
             'title': 'CSV Bestand Importeren',
-            'site_header': 'Kangoo Jumping Beheer',
+            'site_header': 'Jump4Fun Beheer',
             'site_title': 'CSV Import',
             'opts': self.model._meta,
         }

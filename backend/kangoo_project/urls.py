@@ -12,6 +12,6 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-admin.site.site_header = "Kangoo Jumping Beheer"
+admin.site.site_header = "Jump4Fun Beheer"
 admin.site.site_title = "Kangoo Admin"
-admin.site.index_title = "Welkom bij Kangoo Jumping Beheer"
+admin.site.index_title = "Welkom bij Jump4Fun Beheer"
