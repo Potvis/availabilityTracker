@@ -30,6 +30,7 @@ services:
       - DEBUG=False  # IMPORTANT: Set to False in production
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
     depends_on:
       db:
         condition: service_healthy
