@@ -27,6 +27,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DB_PASSWORD=${DB_PASSWORD}  # Use environment variable
       - DATABASE_URL=postgresql://kangoo:${DB_PASSWORD}@db:5432/kangoo
       - DEBUG=False  # IMPORTANT: Set to False in production
       - SECRET_KEY=${SECRET_KEY}
