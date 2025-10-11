@@ -11,12 +11,15 @@ import os
 suggest_unrecoverable_after = 30
 start = time.time()
 
+# Read password from environment variable
+db_password = os.environ.get('DB_PASSWORD', 'kangoo_dev_password')
+
 while True:
     try:
         psycopg2.connect(
             dbname="kangoo",
             user="kangoo",
-            password="kangoo_dev_password",
+            password=db_password,  # USE ENVIRONMENT VARIABLE
             host="db",
             port="5432",
         )
