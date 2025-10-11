@@ -48,4 +48,6 @@ db.sqlite3-journal
 Thumbs.db
 
 # Docker
-*.sql
+*.sqlpostgres_data/
+backups/
+.env
