@@ -9,15 +9,15 @@ from .utils import process_csv_import
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
-    list_display = ['member', 'title', 'session_date', 'location', 'card_used', 'import_date']
-    list_filter = ['session_date', 'location', 'title']
+    list_display = ['member', 'title', 'session_date', 'location', 'card_used', 'card_status', 'import_date']
+    list_filter = ['session_date', 'location', 'title', 'card_session_used']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
-    readonly_fields = ['import_date']
+    readonly_fields = ['import_date', 'card_session_used']
     
     fieldsets = (
         ('Lid & Kaart', {
-            'fields': ('member', 'session_card')
+            'fields': ('member', 'session_card', 'card_session_used')
         }),
         ('Sessie Details', {
             'fields': ('session_date', 'title', 'description', 'location')
@@ -32,13 +32,30 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
     )
 
     def card_used(self, obj):
+        """Display which card was used with visual indicator"""
         if obj.session_card:
+            color = 'green' if obj.card_session_used else 'orange'
+            symbol = '✓' if obj.card_session_used else '○'
             return format_html(
-                '<span style="color: green;">✓ {}</span>',
-                obj.session_card.card_type
+                '<span style="color: {};">{} {}</span>',
+                color, symbol, obj.session_card.card_type
             )
         return format_html('<span style="color: gray;">Geen kaart</span>')
-    card_used.short_description = 'Kaart Gebruikt'
+    card_used.short_description = 'Kaart'
+    
+    def card_status(self, obj):
+        """Show if card session was consumed"""
+        if obj.session_card:
+            if obj.card_session_used:
+                return format_html(
+                    '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
+                )
+            else:
+                return format_html(
+                    '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld</span>'
+                )
+        return format_html('<span style="color: gray;">-</span>')
+    card_status.short_description = 'Status'
 
 
 @admin.register(CSVImport)
