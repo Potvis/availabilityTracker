@@ -5,26 +5,41 @@ from members.models import Member
 from cards.models import SessionCard
 from .models import SessionAttendance, CSVImport
 
-def parse_dutch_datetime(date_str):
-    """Parse Dutch datetime format: supports multiple formats"""
+def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
+    print("=" * 50)
+    print("CSV IMPORT STARTED")
+    print(f"File: {csv_file.name}")
+    print(f"Imported by: {imported_by}")
+    print(f"Auto assign cards: {auto_assign_cards}")
+    print("=" * 50)
+
+def parse_dutch_datetime(date_str, time_str=None):
+    """
+    Parse Dutch datetime format with flexible spacing
+    Handles: "7/10/2025   19:30" or separate date/time
+    """
     if not date_str or str(date_str).strip() == 'nan':
         return None
     
-    # Clean up the string - remove extra spaces
-    date_str = ' '.join(str(date_str).strip().split())
+    # If time_str provided separately, use it
+    if time_str and str(time_str).strip() != 'nan':
+        datetime_str = f"{str(date_str).strip()} {str(time_str).strip()}"
+    else:
+        # Clean up the string - normalize multiple spaces to single space
+        datetime_str = ' '.join(str(date_str).strip().split())
     
-    # Try multiple date formats
+    # Try multiple date formats - order matters!
     formats = [
-        '%d/%m/%Y %H:%M',      # d/m/yyyy HH:MM or dd/mm/yyyy HH:MM
-        '%d-%m-%Y %H:%M',      # dd-mm-yyyy HH:MM
+        '%d/%m/%Y %H:%M',      # d/m/yyyy HH:MM (handles 7/10/2025 19:30)
         '%d/%m/%y %H:%M',      # d/m/yy HH:MM
+        '%d-%m-%Y %H:%M',      # dd-mm-yyyy HH:MM
         '%d-%m-%y %H:%M',      # dd-mm-yy HH:MM
         '%Y-%m-%d %H:%M',      # yyyy-mm-dd HH:MM
     ]
     
     for fmt in formats:
         try:
-            return datetime.strptime(date_str, fmt)
+            return datetime.strptime(datetime_str, fmt)
         except ValueError:
             continue
     
@@ -35,17 +50,17 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
     Process CSV import and create SessionAttendance records
     
     Expected CSV columns:
-    - Eindtijd (dd-mm-yyyy HH:MM)
-    - Titel
-    - Omschrijving
-    - Capaciteit
-    - Totaal
-    - Wachtend
-    - Locatie
-    - E-mail
-    - Schoenmaat
-    - Gemaakt door
-    - Gewijzigd door
+    - Begintijd or Eindtijd (dd/mm/yyyy HH:MM format)
+    - Titel (session title)
+    - Omschrijving (description)
+    - Capaciteit (capacity)
+    - Totaal (total attendees)
+    - Wachtend (waiting list)
+    - Locatie (location)
+    - E-mail (member email - REQUIRED)
+    - Schoenmaat (shoe size)
+    - Gemaakt door (created by)
+    - Gewijzigd door (modified by)
     """
     errors = []
     rows_processed = 0
@@ -59,7 +74,6 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
         # Strip whitespace from column names
         df.columns = df.columns.str.strip()
         
-        # Log the columns found
         print(f"CSV Columns found: {list(df.columns)}")
         print(f"Total rows in CSV: {len(df)}")
         
@@ -77,37 +91,48 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
             rows_processed += 1
             
             try:
-                # Get or create member - try multiple columns for email
+                # ===== GET OR CREATE MEMBER =====
                 email = None
                 
                 # Try E-mail column first
-                if pd.notna(row.get('E-mail')):
+                if 'E-mail' in df.columns and pd.notna(row.get('E-mail')):
                     email = str(row.get('E-mail')).strip().lower()
                 
                 # If E-mail is empty, try Gemaakt door (Created by)
                 if not email or email == 'nan':
-                    created_by = str(row.get('Gemaakt door', '')).strip()
-                    # Check if it looks like an email
-                    if '@' in created_by and '.' in created_by:
-                        email = created_by.lower()
+                    if 'Gemaakt door' in df.columns:
+                        created_by = str(row.get('Gemaakt door', '')).strip()
+                        if '@' in created_by and '.' in created_by:
+                            email = created_by.lower()
                 
                 if not email or email == 'nan' or '@' not in email:
-                    errors.append(f"Rij {index + 2}: Geen geldig e-mailadres gevonden (E-mail of Gemaakt door)")
+                    errors.append(f"Rij {index + 2}: Geen geldig e-mailadres gevonden")
                     rows_skipped += 1
                     continue
                 
+                # Get shoe size
+                shoe_size = ''
+                if 'Schoenmaat' in df.columns and pd.notna(row.get('Schoenmaat')):
+                    shoe_size = str(row.get('Schoenmaat')).strip()
+                
                 member, created = Member.objects.get_or_create(
                     email=email,
-                    defaults={
-                        'shoe_size': str(row.get('Schoenmaat', '')).strip() if pd.notna(row.get('Schoenmaat')) else ''
-                    }
+                    defaults={'shoe_size': shoe_size}
                 )
                 
-                # Parse session date - try both Eindtijd and Begintijd
+                # Update shoe size if member exists and we have new info
+                if not created and shoe_size and not member.shoe_size:
+                    member.shoe_size = shoe_size
+                    member.save()
+                
+                # ===== PARSE SESSION DATE =====
                 session_date_str = None
-                if 'Eindtijd' in row and pd.notna(row.get('Eindtijd')):
+                time_str = None
+                
+                # Try Eindtijd first, then Begintijd
+                if 'Eindtijd' in df.columns and pd.notna(row.get('Eindtijd')):
                     session_date_str = str(row.get('Eindtijd')).strip()
-                elif 'Begintijd' in row and pd.notna(row.get('Begintijd')):
+                elif 'Begintijd' in df.columns and pd.notna(row.get('Begintijd')):
                     session_date_str = str(row.get('Begintijd')).strip()
                 
                 if not session_date_str:
@@ -118,29 +143,48 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
                 session_date = parse_dutch_datetime(session_date_str)
                 
                 if not session_date:
-                    errors.append(f"Rij {index + 2}: Ongeldige datum '{session_date_str}'")
+                    errors.append(f"Rij {index + 2}: Ongeldige datumformat '{session_date_str}'")
                     rows_skipped += 1
                     continue
                 
-                # Get session details
-                title = str(row.get('Titel', 'Kangoo Jumping Sessie')).strip()
-                description = str(row.get('Omschrijving', '')).strip() if pd.notna(row.get('Omschrijving')) else ''
-                location = str(row.get('Locatie', '')).strip() if pd.notna(row.get('Locatie')) else ''
-                capacity = int(row.get('Capaciteit')) if pd.notna(row.get('Capaciteit')) else None
-                total = int(row.get('Totaal')) if pd.notna(row.get('Totaal')) else None
-                waiting = int(row.get('Wachtend', 0)) if pd.notna(row.get('Wachtend')) else 0
-                created_by = str(row.get('Gemaakt door', '')).strip() if pd.notna(row.get('Gemaakt door')) else ''
-                modified_by = str(row.get('Gewijzigd door', '')).strip() if pd.notna(row.get('Gewijzigd door')) else ''
+                # ===== GET SESSION DETAILS =====
+                title = str(row.get('Titel', 'Kangoo Jumping Sessie')).strip() if 'Titel' in df.columns else 'Kangoo Jumping Sessie'
+                description = str(row.get('Omschrijving', '')).strip() if 'Omschrijving' in df.columns and pd.notna(row.get('Omschrijving')) else ''
+                location = str(row.get('Locatie', '')).strip() if 'Locatie' in df.columns and pd.notna(row.get('Locatie')) else ''
                 
-                # Try to find or assign a session card
+                capacity = None
+                if 'Capaciteit' in df.columns and pd.notna(row.get('Capaciteit')):
+                    try:
+                        capacity = int(row.get('Capaciteit'))
+                    except (ValueError, TypeError):
+                        capacity = None
+                
+                total = None
+                if 'Totaal' in df.columns and pd.notna(row.get('Totaal')):
+                    try:
+                        total = int(row.get('Totaal'))
+                    except (ValueError, TypeError):
+                        total = None
+                
+                waiting = 0
+                if 'Wachtend' in df.columns and pd.notna(row.get('Wachtend')):
+                    try:
+                        waiting = int(row.get('Wachtend'))
+                    except (ValueError, TypeError):
+                        waiting = 0
+                
+                created_by = str(row.get('Gemaakt door', '')).strip() if 'Gemaakt door' in df.columns and pd.notna(row.get('Gemaakt door')) else ''
+                modified_by = str(row.get('Gewijzigd door', '')).strip() if 'Gewijzigd door' in df.columns and pd.notna(row.get('Gewijzigd door')) else ''
+                
+                # ===== TRY TO FIND OR ASSIGN A SESSION CARD =====
                 session_card = None
                 if auto_assign_cards:
-                    # Try to find an active card for this member
                     active_cards = member.active_cards()
                     if active_cards.exists():
+                        # Get the first active card
                         session_card = active_cards.first()
                 
-                # Create or update attendance record
+                # ===== CREATE OR UPDATE ATTENDANCE RECORD =====
                 attendance, created = SessionAttendance.objects.get_or_create(
                     member=member,
                     session_date=session_date,
@@ -159,12 +203,6 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
                 
                 if created:
                     rows_created += 1
-                    # Use a session from the card if assigned
-                    if session_card and auto_assign_cards:
-                        try:
-                            session_card.use_session()
-                        except ValueError as e:
-                            errors.append(f"Rij {index + 2}: Kon sessie niet gebruiken - {str(e)}")
                 else:
                     rows_skipped += 1
                     
@@ -172,7 +210,7 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
                 errors.append(f"Rij {index + 2}: {str(e)}")
                 rows_skipped += 1
         
-        # Update import record
+        # ===== UPDATE IMPORT RECORD =====
         csv_import.rows_processed = rows_processed
         csv_import.rows_created = rows_created
         csv_import.rows_skipped = rows_skipped

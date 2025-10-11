@@ -2,8 +2,9 @@
 
 {% block object-tools-items %}
   <li>
-    <a href="{% url 'admin:bookings_csvimport_import' %}" class="addlink" style="background-color: #28a745; border-color: #28a745;">
-      CSV Importeren
+    <a href="{% url 'admin:bookings_csvimport_import' %}" class="addlink">
+      + CSV Importeren
     </a>
   </li>
+  {{ block.super }}
 {% endblock %}

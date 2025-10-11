@@ -29,13 +29,11 @@ class Member(models.Model):
 
     def total_sessions_attended(self):
         """Count total sessions attended by this member"""
-        from sessions.models import SessionAttendance
-        return SessionAttendance.objects.filter(member=self).count()
+        # Fixed: was importing from sessions, should be bookings
+        return self.attendances.count()
 
     def active_cards(self):
         """Get all active session cards for this member"""
-        from cards.models import SessionCard
-        return SessionCard.objects.filter(
-            member=self,
+        return self.session_cards.filter(
             status='active'
         ).order_by('-purchased_date')

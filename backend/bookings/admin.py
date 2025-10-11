@@ -48,6 +48,10 @@ class CSVImportAdmin(admin.ModelAdmin):
     search_fields = ['filename', 'imported_by']
     readonly_fields = ['imported_at', 'rows_processed', 'rows_created', 'rows_skipped', 'errors']
     
+    # Disable the default add form - we have a custom import view instead
+    def has_add_permission(self, request):
+        return False
+    
     fieldsets = (
         ('Bestand Informatie', {
             'fields': ('filename', 'file', 'imported_by')
@@ -74,11 +78,13 @@ class CSVImportAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('import-csv/', self.admin_site.admin_view(self.import_csv_view), name='sessions_csvimport_import'),
+            path('import/', self.admin_site.admin_view(self.import_csv_view), 
+                 name='bookings_csvimport_import'),
         ]
         return custom_urls + urls
 
     def import_csv_view(self, request):
+        """Custom CSV import view"""
         if request.method == 'POST':
             form = CSVImportForm(request.POST, request.FILES)
             if form.is_valid():
@@ -86,14 +92,25 @@ class CSVImportAdmin(admin.ModelAdmin):
                 auto_assign_cards = form.cleaned_data['auto_assign_cards']
                 
                 try:
-                    result = process_csv_import(csv_file, request.user.username if request.user.is_authenticated else 'admin', auto_assign_cards)
+                    result = process_csv_import(
+                        csv_file, 
+                        imported_by=request.user.username if request.user.is_authenticated else 'admin', 
+                        auto_assign_cards=auto_assign_cards
+                    )
                     
                     if result['errors']:
-                        messages.warning(request, f"Import voltooid met waarschuwingen. {result['created']} rijen toegevoegd, {result['skipped']} overgeslagen.")
+                        messages.warning(
+                            request, 
+                            f"Import voltooid met waarschuwingen. {result['created']} rijen toegevoegd, "
+                            f"{result['skipped']} overgeslagen. Zie import record voor details."
+                        )
                     else:
-                        messages.success(request, f"Import succesvol! {result['created']} rijen toegevoegd, {result['skipped']} overgeslagen.")
+                        messages.success(
+                            request, 
+                            f"Import succesvol! {result['created']} rijen toegevoegd, {result['skipped']} overgeslagen."
+                        )
                     
-                    return redirect('admin:sessions_csvimport_changelist')
+                    return redirect('admin:bookings_csvimport_changelist')
                 except Exception as e:
                     messages.error(request, f"Fout tijdens import: {str(e)}")
         else:
@@ -101,13 +118,16 @@ class CSVImportAdmin(admin.ModelAdmin):
         
         context = {
             'form': form,
-            'title': 'CSV Importeren',
+            'title': 'CSV Bestand Importeren',
             'site_header': 'Kangoo Jumping Beheer',
             'site_title': 'CSV Import',
+            'opts': self.model._meta,
         }
-        return render(request, 'admin/sessions/csvimport/import_form.html', context)
+        return render(request, 'admin/bookings/csvimport/import_form.html', context)
 
     def changelist_view(self, request, extra_context=None):
+        """Add custom button to changelist view"""
         extra_context = extra_context or {}
-        extra_context['import_url'] = 'admin:sessions_csvimport_import'
+        extra_context['has_add_permission'] = False
+        extra_context['import_url'] = 'admin:bookings_csvimport_import'
         return super().changelist_view(request, extra_context=extra_context)

@@ -5,24 +5,24 @@
 <div style="max-width: 800px; margin: 20px auto;">
     <h1>CSV Bestand Importeren</h1>
     
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <div style="background-color: #212121; color: white;  padding: 15px; border-radius: 5px; margin-bottom: 20px;">
         <h3>Verwachte CSV Kolommen:</h3>
         <ul>
-            <li><strong>Eindtijd</strong> - Datum en tijd (dd-mm-yyyy HH:MM)</li>
-            <li><strong>Titel</strong> - Naam van de sessie</li>
+            <li><strong>Begintijd/Eindtijd</strong> - Datum en tijd (dd/mm/yyyy HH:MM)</li>
+            <li><strong>Titel</strong> - Naam van de sessie (bijv. "Maat Small")</li>
             <li><strong>Omschrijving</strong> - Beschrijving (optioneel)</li>
             <li><strong>Capaciteit</strong> - Maximum aantal deelnemers</li>
             <li><strong>Totaal</strong> - Totaal aantal deelnemers</li>
             <li><strong>Wachtend</strong> - Aantal wachtenden</li>
-            <li><strong>Locatie</strong> - Locatie van de sessie</li>
-            <li><strong>E-mail</strong> - E-mailadres van het lid (verplicht)</li>
+            <li><strong>Locatie</strong> - Locatie van de sessie (bijv. "Deinze Kouter 93")</li>
+            <li><strong>E-mail</strong> - E-mailadres van het lid (verplicht!)</li>
             <li><strong>Schoenmaat</strong> - Schoenmaat van het lid</li>
             <li><strong>Gemaakt door</strong> - Wie heeft de boeking gemaakt</li>
             <li><strong>Gewijzigd door</strong> - Wie heeft de boeking gewijzigd</li>
         </ul>
     </div>
 
-    <form method="post" enctype="multipart/form-data" style="background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+    <form method="post" enctype="multipart/form-data" style="background-color: #212121; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
         {% csrf_token %}
         
         <div style="margin-bottom: 15px;">
@@ -50,19 +50,20 @@
             <button type="submit" style="background-color: #417690; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
                 Importeren
             </button>
-            <a href="{% url 'admin:sessions_csvimport_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
+            <a href="{% url 'admin:bookings_csvimport_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
                 Annuleren
             </a>
         </div>
     </form>
 
-    <div style="margin-top: 30px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+    <div style="margin-top: 30px; padding: 15px; background-color: #212121; color: white; border-radius: 5px;">
         <h4>⚠️ Let op:</h4>
         <ul>
-            <li>Dubbele records (zelfde lid + datum + titel) worden overgeslagen</li>
+            <li>Dubbele records (zelfde lid + datum + titel) worden automatisch gelinkt</li>
             <li>Als een lid nog niet bestaat, wordt deze automatisch aangemaakt</li>
             <li>Als "Automatisch kaarten toewijzen" aan staat, wordt de eerste actieve kaart van het lid gebruikt</li>
             <li>De import kan even duren bij grote bestanden</li>
+            <li>E-mail is verplicht! Zorg dat elke rij een geldig e-mailadres heeft</li>
         </ul>
     </div>
 </div>
