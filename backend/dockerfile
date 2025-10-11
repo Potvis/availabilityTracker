@@ -22,7 +22,10 @@ RUN chmod +x /app/entrypoint.sh
 # Copy rest of project
 COPY . /app/
 
-# Create media directory
-RUN mkdir -p /app/media/csv_imports
+# Create directories
+RUN mkdir -p /app/media/csv_imports /app/staticfiles
+
+# Collect static files during build
+RUN python manage.py collectstatic --noinput --clear || true
 
 ENTRYPOINT ["/app/entrypoint.sh"]
