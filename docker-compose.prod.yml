@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    command: gunicorn kangoo_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+    command: gunicorn kangoo_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --keep-alive 5 --access-logfile - --error-logfile - --log-level info
     volumes:
       - static_volume:/home/app/web/staticfiles
       - media_volume:/home/app/web/media
@@ -42,6 +42,12 @@ services:
     restart: unless-stopped
     networks:
       - kangoo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/login/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
     build: ./nginx
@@ -49,12 +55,18 @@ services:
       - static_volume:/home/app/web/staticfiles
       - media_volume:/home/app/web/media
     ports:
-      - "80:80"
+      - "8085:80"
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - kangoo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
