@@ -1,6 +1,6 @@
-###########
-# BUILDER #
-###########
+############
+# BUILDER  #
+############
 
 FROM python:3.11-slim as builder
 
@@ -41,7 +41,6 @@ WORKDIR $APP_HOME
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     netcat-traditional \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/wheels /wheels
