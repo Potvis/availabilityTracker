@@ -93,23 +93,27 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
             try:
                 # ===== GET OR CREATE MEMBER =====
                 email = None
-                
+
                 # Try E-mail column first
                 if 'E-mail' in df.columns and pd.notna(row.get('E-mail')):
                     email = str(row.get('E-mail')).strip().lower()
-                
+
                 # If E-mail is empty, try Gemaakt door (Created by)
                 if not email or email == 'nan':
                     if 'Gemaakt door' in df.columns:
                         created_by = str(row.get('Gemaakt door', '')).strip()
-                        if '@' in created_by and '.' in created_by:
+                        
+                        # Hardcoded: if created by 'beheerder', use specific email
+                        if created_by.lower() == 'beheerder':
+                            email = 'info@jump4fun.be'
+                        # Otherwise check if it's an email address
+                        elif '@' in created_by and '.' in created_by:
                             email = created_by.lower()
-                
+                            
                 if not email or email == 'nan' or '@' not in email:
                     errors.append(f"Rij {index + 2}: Geen geldig e-mailadres gevonden")
                     rows_skipped += 1
                     continue
-                
                 # Get shoe size
                 shoe_size = ''
                 if 'Schoenmaat' in df.columns and pd.notna(row.get('Schoenmaat')):
