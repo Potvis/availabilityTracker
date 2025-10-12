@@ -1,4 +1,3 @@
-
 # Python
 __pycache__/
 *.py[cod]
@@ -32,9 +31,11 @@ db.sqlite3-journal
 /media
 /staticfiles
 
-# Environment
+# Environment variables (CRITICAL - contains secrets!)
 .env
 .env.local
+.env.prod
+.env.production
 
 # IDEs
 .vscode/
@@ -51,4 +52,45 @@ Thumbs.db
 *.sql
 postgres_data/
 backups/
-.env
+
+# SSL/TLS Certificates (CRITICAL - private keys!)
+certbot/
+certbot/conf/
+certbot/www/
+!certbot/.gitkeep
+
+# Nginx configs with secrets (if any)
+nginx/nginx.conf  # Uncomment if it contains sensitive info
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Log files
+*.log
+logs/
+
+# Node modules (if you add frontend later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
