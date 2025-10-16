@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aanwezigheidslijst - {{ session_date|date:"l j F Y - H:i" }}</title>
+    <title>Aanwezigheidslijst - {{ session_title }}</title>
     <style>
         @media print {
             .no-print {
@@ -151,11 +151,10 @@
     <div class="header">
         <h1>📋 Aanwezigheidslijst</h1>
         <div class="session-info">
-            <strong>
+            <strong>{{ session_title }}</strong><br>
             {% if session_date %}
                 {{ session_date|date:"l j F Y - H:i" }}
             {% endif %}
-            </strong><br>
         </div>
     </div>
     
@@ -168,7 +167,7 @@
             <tr>
                 <th style="width: 50px;">#</th>
                 <th>Naam</th>
-                <th style="width: 100px;">Schoenmaat</th>
+                <th style="width: 150px;">Sessie Type</th>
                 <th style="width: 150px;">Kaart Type</th>
                 <th style="width: 80px; text-align: center;">Aanwezig</th>
             </tr>

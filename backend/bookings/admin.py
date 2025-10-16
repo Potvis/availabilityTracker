@@ -100,34 +100,29 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
 
     def print_attendance_list(self, request, queryset):
         """Generate printable attendance list"""
-        from django.db.models import Case, When, Value, CharField
-        from django.db.models.functions import Concat, Coalesce
+        # Get attendances with related member data
+        attendances = list(queryset.select_related('member'))
         
-        # Sort alphabetically: use last_name+first_name if available, otherwise email
-        attendances = queryset.select_related('member').annotate(
-            sort_name=Case(
-                # If both first and last name exist, use "lastname, firstname"
-                When(
-                    member__first_name__isnull=False,
-                    member__last_name__isnull=False,
-                    then=Concat('member__last_name', Value(', '), 'member__first_name')
-                ),
-                # If only last name, use that
-                When(
-                    member__last_name__isnull=False,
-                    then='member__last_name'
-                ),
-                # Otherwise use email
-                default='member__email',
-                output_field=CharField()
-            )
-        ).order_by('sort_name')
+        # Sort alphabetically using Python
+        def get_sort_key(attendance):
+            member = attendance.member
+            # If member has both names, use "lastname, firstname"
+            if member.last_name and member.first_name:
+                return f"{member.last_name.lower()}, {member.first_name.lower()}"
+            # If only last name
+            elif member.last_name:
+                return member.last_name.lower()
+            # Otherwise use email
+            else:
+                return member.email.lower()
+        
+        attendances.sort(key=get_sort_key)
         
         context = {
             'attendances': attendances,
-            'session_title': attendances.first().title if attendances.exists() else 'Sessie',
-            'session_date': attendances.first().session_date if attendances.exists() else '',
-            'total_count': attendances.count(),
+            'session_title': attendances[0].title if attendances else 'Sessie',
+            'session_date': attendances[0].session_date if attendances else '',
+            'total_count': len(attendances),
         }
         
         html = render_to_string('admin/bookings/attendance_print.html', context)
