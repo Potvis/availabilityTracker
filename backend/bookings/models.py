@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
+from django.utils import timezone
 from members.models import Member
 from cards.models import SessionCard
 
@@ -29,6 +30,13 @@ class SessionAttendance(models.Model):
         default=False,
         help_text="Indicates if this session consumed a session from the card"
     )
+    
+    # Attendance tracking for printing
+    was_present = models.BooleanField(
+        default=True,
+        verbose_name='Aanwezig',
+        help_text='Was dit lid aanwezig bij de sessie?'
+    )
 
     class Meta:
         ordering = ['-session_date']
@@ -38,6 +46,11 @@ class SessionAttendance(models.Model):
 
     def __str__(self):
         return f"{self.member.full_name} - {self.title} ({self.session_date.strftime('%d-%m-%Y %H:%M')})"
+    
+    @property
+    def is_in_past(self):
+        """Check if session date is in the past"""
+        return self.session_date < timezone.now()
 
 
 class CSVImport(models.Model):
@@ -65,10 +78,15 @@ class CSVImport(models.Model):
 def use_card_session_on_save(sender, instance, created, **kwargs):
     """
     Automatically use a session from the card when attendance is linked to a card.
-    This fires whenever a SessionAttendance is created or updated.
+    Only charges if session date is in the past (already occurred).
     """
     # Only process if there's a card linked and we haven't already used it
     if instance.session_card and not instance.card_session_used:
+        # IMPORTANT: Only charge if session date is in the past
+        if not instance.is_in_past:
+            print(f"⏭ Session {instance} is in the future - not charging card yet")
+            return
+            
         try:
             card = instance.session_card
             
@@ -87,7 +105,8 @@ def use_card_session_on_save(sender, instance, created, **kwargs):
                 # Use update() to avoid triggering the signal again
                 SessionAttendance.objects.filter(pk=instance.pk).update(card_session_used=True)
                 
-                print(f"✓ Card session used: {card} (now {card.sessions_remaining} remaining)")
+                trial_msg = " (OEFENBEURT)" if card.is_trial else ""
+                print(f"✓ Card session used{trial_msg}: {card} (now {card.sessions_remaining} remaining)")
             else:
                 print(f"⚠ Card {card} cannot be used (status: {card.status}, remaining: {card.sessions_remaining})")
                 

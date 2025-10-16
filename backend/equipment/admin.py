@@ -10,15 +10,15 @@ class MaintenanceLogInline(admin.TabularInline):
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
-    list_display = ['equipment_id', 'name', 'size', 'status_badge', 'last_maintenance', 'next_maintenance']
-    list_filter = ['status', 'size', 'last_maintenance']
+    list_display = ['equipment_id', 'name', 'size', 'spring_type_badge', 'status_badge', 'last_maintenance', 'next_maintenance']
+    list_filter = ['status', 'size', 'spring_type', 'last_maintenance']
     search_fields = ['equipment_id', 'name']
     readonly_fields = ['created_at', 'updated_at']
     inlines = [MaintenanceLogInline]
     
     fieldsets = (
         ('Basis Informatie', {
-            'fields': ('equipment_id', 'name', 'size', 'status')
+            'fields': ('equipment_id', 'name', 'size', 'spring_type', 'status')
         }),
         ('Onderhoud', {
             'fields': ('purchase_date', 'last_maintenance', 'next_maintenance')
@@ -29,10 +29,21 @@ class EquipmentAdmin(admin.ModelAdmin):
         }),
     )
 
+    def spring_type_badge(self, obj):
+        colors = {
+            'standard': '#2196F3',
+            'hd': '#FF9800'
+        }
+        color = colors.get(obj.spring_type, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;">{}</span>',
+            color, obj.get_spring_type_display()
+        )
+    spring_type_badge.short_description = 'Veer Type'
+
     def status_badge(self, obj):
         colors = {
             'available': 'green',
-            'in_use': 'blue',
             'maintenance': 'orange',
             'broken': 'red'
         }
@@ -43,7 +54,7 @@ class EquipmentAdmin(admin.ModelAdmin):
         )
     status_badge.short_description = 'Status'
 
-    actions = ['mark_available', 'mark_maintenance', 'mark_broken']
+    actions = ['mark_available', 'mark_maintenance', 'mark_broken', 'set_spring_standard', 'set_spring_hd']
 
     def mark_available(self, request, queryset):
         updated = queryset.update(status='available')
@@ -59,6 +70,16 @@ class EquipmentAdmin(admin.ModelAdmin):
         updated = queryset.update(status='broken')
         self.message_user(request, f'{updated} item(s) gemarkeerd als defect.')
     mark_broken.short_description = 'Markeer als defect'
+
+    def set_spring_standard(self, request, queryset):
+        updated = queryset.update(spring_type='standard')
+        self.message_user(request, f'{updated} item(s) ingesteld op Standaard veer.')
+    set_spring_standard.short_description = 'Veer type → Standaard'
+
+    def set_spring_hd(self, request, queryset):
+        updated = queryset.update(spring_type='hd')
+        self.message_user(request, f'{updated} item(s) ingesteld op HD veer.')
+    set_spring_hd.short_description = 'Veer type → HD'
 
     def changelist_view(self, request, extra_context=None):
         # Add summary statistics to the change list

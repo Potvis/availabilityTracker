@@ -15,4 +15,3 @@ Sessie aanwezigheden
 	-> Printable maken, checkbox toevoegen voor aanwezigheid, alfabetish op naam sorteren (Maat toevoegen uiteraard!)
 betaalmogelijkheden
 	-> Ook cash moet mogelijk zijn!
-	

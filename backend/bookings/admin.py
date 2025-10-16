@@ -3,24 +3,26 @@ from django.utils.html import format_html
 from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.http import HttpResponse
+from django.template.loader import render_to_string
 from .models import SessionAttendance, CSVImport
 from .forms import CSVImportForm
 from .utils import process_csv_import
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
-    list_display = ['member', 'title', 'session_date', 'location', 'card_used', 'card_status', 'import_date']
-    list_filter = ['session_date', 'location', 'title', 'card_session_used']
+    list_display = ['member_name_with_size', 'title', 'session_date', 'location', 'card_used', 'card_status', 'was_present_badge', 'import_date']
+    list_filter = ['session_date', 'location', 'title', 'card_session_used', 'was_present']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
-    readonly_fields = ['import_date', 'card_session_used']
+    readonly_fields = ['import_date', 'card_session_used', 'is_past_session']
     
     fieldsets = (
         ('Lid & Kaart', {
-            'fields': ('member', 'session_card', 'card_session_used')
+            'fields': ('member', 'session_card', 'card_session_used', 'was_present')
         }),
         ('Sessie Details', {
-            'fields': ('session_date', 'title', 'description', 'location')
+            'fields': ('session_date', 'is_past_session', 'title', 'description', 'location')
         }),
         ('Capaciteit', {
             'fields': ('capacity', 'total_attendees', 'waiting_list')
@@ -31,14 +33,24 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         }),
     )
 
+    def member_name_with_size(self, obj):
+        """Display member name with shoe size"""
+        name = obj.member.full_name
+        size = obj.member.shoe_size or "?"
+        return f"{name} (maat {size})"
+    member_name_with_size.short_description = 'Lid (Schoenmaat)'
+    member_name_with_size.admin_order_field = 'member__last_name'
+
     def card_used(self, obj):
         """Display which card was used with visual indicator"""
         if obj.session_card:
+            is_trial = obj.session_card.card_category == 'trial'
+            trial_icon = '🎓' if is_trial else ''
             color = 'green' if obj.card_session_used else 'orange'
             symbol = '✓' if obj.card_session_used else '○'
             return format_html(
-                '<span style="color: {};">{} {}</span>',
-                color, symbol, obj.session_card.card_type
+                '<span style="color: {};">{} {}{}</span>',
+                color, symbol, trial_icon, obj.session_card.card_type
             )
         return format_html('<span style="color: gray;">Geen kaart</span>')
     card_used.short_description = 'Kaart'
@@ -51,11 +63,50 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
                     '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
                 )
             else:
+                past = " (niet verleden)" if not obj.is_in_past else ""
                 return format_html(
-                    '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld</span>'
+                    '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld{}</span>',
+                    past
                 )
         return format_html('<span style="color: gray;">-</span>')
     card_status.short_description = 'Status'
+    
+    def was_present_badge(self, obj):
+        """Show attendance status"""
+        if obj.was_present:
+            return format_html(
+                '<span style="color: green; font-weight: bold;">✓ Ja</span>'
+            )
+        return format_html(
+            '<span style="color: red; font-weight: bold;">✗ Nee</span>'
+        )
+    was_present_badge.short_description = 'Aanwezig'
+    
+    def is_past_session(self, obj):
+        """Show if session is in the past"""
+        if obj.is_in_past:
+            return format_html('<span style="color: green;">✓ Verleden</span>')
+        return format_html('<span style="color: orange;">○ Toekomst</span>')
+    is_past_session.short_description = 'Tijdstip'
+
+    actions = ['print_attendance_list']
+
+    def print_attendance_list(self, request, queryset):
+        """Generate printable attendance list"""
+        # Sort alphabetically by member name
+        attendances = queryset.select_related('member').order_by('member__last_name', 'member__first_name')
+        
+        context = {
+            'attendances': attendances,
+            'session_title': attendances.first().title if attendances.exists() else 'Sessie',
+            'session_date': attendances.first().session_date if attendances.exists() else '',
+            'total_count': attendances.count(),
+        }
+        
+        html = render_to_string('admin/bookings/attendance_print.html', context)
+        return HttpResponse(html)
+    
+    print_attendance_list.short_description = 'Print aanwezigheidslijst'
 
 
 @admin.register(CSVImport)
