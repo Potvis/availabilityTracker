@@ -35,7 +35,14 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
 
     def member_name_with_size(self, obj):
         """Display member name with shoe size"""
-        name = obj.member.full_name
+        # Use name if available, otherwise email
+        if obj.member.first_name and obj.member.last_name:
+            name = f"{obj.member.last_name}, {obj.member.first_name}"
+        elif obj.member.last_name:
+            name = obj.member.last_name
+        else:
+            name = obj.member.email
+            
         size = obj.member.shoe_size or "?"
         return f"{name} (maat {size})"
     member_name_with_size.short_description = 'Lid (Schoenmaat)'
@@ -93,8 +100,28 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
 
     def print_attendance_list(self, request, queryset):
         """Generate printable attendance list"""
-        # Sort alphabetically by member name
-        attendances = queryset.select_related('member').order_by('member__last_name', 'member__first_name')
+        from django.db.models import Case, When, Value, CharField
+        from django.db.models.functions import Concat, Coalesce
+        
+        # Sort alphabetically: use last_name+first_name if available, otherwise email
+        attendances = queryset.select_related('member').annotate(
+            sort_name=Case(
+                # If both first and last name exist, use "lastname, firstname"
+                When(
+                    member__first_name__isnull=False,
+                    member__last_name__isnull=False,
+                    then=Concat('member__last_name', Value(', '), 'member__first_name')
+                ),
+                # If only last name, use that
+                When(
+                    member__last_name__isnull=False,
+                    then='member__last_name'
+                ),
+                # Otherwise use email
+                default='member__email',
+                output_field=CharField()
+            )
+        ).order_by('sort_name')
         
         context = {
             'attendances': attendances,

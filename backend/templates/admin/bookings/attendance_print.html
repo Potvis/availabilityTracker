@@ -177,7 +177,11 @@
             <tr>
                 <td>{{ forloop.counter }}</td>
                 <td>
-                    <strong>{{ attendance.member.last_name|upper }}, {{ attendance.member.first_name }}</strong>
+                    {% if attendance.member.first_name and attendance.member.last_name %}
+                        <strong>{{ attendance.member.last_name|upper }}, {{ attendance.member.first_name }}</strong>
+                    {% else %}
+                        <strong>{{ attendance.member.email }}</strong>
+                    {% endif %}
                 </td>
                 <td>
                     <span class="size-badge">{{ attendance.member.shoe_size|default:"?" }}</span>
