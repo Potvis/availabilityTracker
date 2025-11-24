@@ -1,22 +1,18 @@
 import pandas as pd
 from datetime import datetime
 from django.core.files.base import ContentFile
+from django.utils import timezone
+from django.conf import settings
+import pytz
 from members.models import Member
 from cards.models import SessionCard
 from .models import SessionAttendance, CSVImport
-
-def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
-    print("=" * 50)
-    print("CSV IMPORT STARTED")
-    print(f"File: {csv_file.name}")
-    print(f"Imported by: {imported_by}")
-    print(f"Auto assign cards: {auto_assign_cards}")
-    print("=" * 50)
 
 def parse_dutch_datetime(date_str, time_str=None):
     """
     Parse Dutch datetime format with flexible spacing
     Handles: "7/10/2025   19:30" or separate date/time
+    Returns timezone-aware datetime in Europe/Brussels timezone
     """
     if not date_str or str(date_str).strip() == 'nan':
         return None
@@ -39,7 +35,14 @@ def parse_dutch_datetime(date_str, time_str=None):
     
     for fmt in formats:
         try:
-            return datetime.strptime(datetime_str, fmt)
+            # Parse the datetime as naive first
+            naive_dt = datetime.strptime(datetime_str, fmt)
+            
+            # Convert to timezone-aware using Brussels timezone
+            brussels_tz = pytz.timezone('Europe/Brussels')
+            aware_dt = brussels_tz.localize(naive_dt)
+            
+            return aware_dt
         except ValueError:
             continue
     
@@ -91,29 +94,38 @@ def process_csv_import(csv_file, imported_by='admin', auto_assign_cards=True):
             rows_processed += 1
             
             try:
-                # ===== GET OR CREATE MEMBER =====
+                # ===== GET OR CREATE MEMBER (IMPROVED EMAIL LOGIC) =====
                 email = None
 
                 # Try E-mail column first
-                if 'E-mail' in df.columns and pd.notna(row.get('E-mail')):
-                    email = str(row.get('E-mail')).strip().lower()
+                if 'E-mail' in df.columns:
+                    email_val = row.get('E-mail')
+                    # Check if it's not NaN and not empty after stripping
+                    if pd.notna(email_val):
+                        email_str = str(email_val).strip()
+                        if email_str and email_str.lower() != 'nan':
+                            email = email_str.lower()
 
-                # If E-mail is empty, try Gemaakt door (Created by)
-                if not email or email == 'nan':
+                # If still no valid email, check Gemaakt door
+                if not email:
                     if 'Gemaakt door' in df.columns:
-                        created_by = str(row.get('Gemaakt door', '')).strip()
-                        
-                        # Hardcoded: if created by 'beheerder', use specific email
-                        if created_by.lower() == 'beheerder':
-                            email = 'info@jump4fun.be'
-                        # Otherwise check if it's an email address
-                        elif '@' in created_by and '.' in created_by:
-                            email = created_by.lower()
+                        created_by_val = row.get('Gemaakt door', '')
+                        if pd.notna(created_by_val):
+                            created_by = str(created_by_val).strip()
                             
-                if not email or email == 'nan' or '@' not in email:
+                            # Check if it's 'beheerder' (case-insensitive)
+                            if created_by.lower() == 'beheerder':
+                                email = 'info@jump4fun.be'
+                            # Check if it's already an email address
+                            elif '@' in created_by and '.' in created_by:
+                                email = created_by.lower()
+
+                # Final validation
+                if not email or '@' not in email:
                     errors.append(f"Rij {index + 2}: Geen geldig e-mailadres gevonden")
                     rows_skipped += 1
                     continue
+                
                 # Get shoe size
                 shoe_size = ''
                 if 'Schoenmaat' in df.columns and pd.notna(row.get('Schoenmaat')):
