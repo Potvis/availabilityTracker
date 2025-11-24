@@ -70,7 +70,11 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
                     '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
                 )
             else:
-                past = " (niet verleden)" if not obj.is_in_past else ""
+                # Handle case where session_date is None
+                if obj.session_date:
+                    past = " (niet verleden)" if not obj.is_in_past else ""
+                else:
+                    past = ""
                 return format_html(
                     '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld{}</span>',
                     past
@@ -91,6 +95,9 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
     
     def is_past_session(self, obj):
         """Show if session is in the past"""
+        # Handle case where session_date is None (new unsaved record)
+        if not obj.session_date:
+            return format_html('<span style="color: gray;">-</span>')
         if obj.is_in_past:
             return format_html('<span style="color: green;">✓ Verleden</span>')
         return format_html('<span style="color: orange;">○ Toekomst</span>')
