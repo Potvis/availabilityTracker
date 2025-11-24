@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'cards',
     'equipment',
     'bookings',
+    'accounts',  # Client booking system
 ]
 
 MIDDLEWARE = [
@@ -51,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'accounts.middleware.ProfileCompletionMiddleware',  # Profile completion enforcement
 ]
 
 ROOT_URLCONF = 'kangoo_project.urls'

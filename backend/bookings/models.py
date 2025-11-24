@@ -136,3 +136,5 @@ def return_card_session_on_delete(sender, instance, **kwargs):
             
         except Exception as e:
             print(f"❌ Error returning card session: {e}")
+# Import schedule models
+from .schedule_models import SessionSchedule, SessionBooking

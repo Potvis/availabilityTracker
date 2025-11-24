@@ -1,3 +1,6 @@
+# Import schedule admin (auto-registers via decorators)
+from . import schedule_admin
+
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import path
