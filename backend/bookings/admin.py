@@ -15,14 +15,16 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
     list_filter = ['session_date', 'location', 'title', 'card_session_used', 'was_present']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
-    readonly_fields = ['import_date', 'card_session_used', 'is_past_session']
+    
+    # Remove is_past_session from readonly_fields to prevent error on add
+    readonly_fields = ['import_date', 'card_session_used', 'get_is_past_session']
     
     fieldsets = (
         ('Lid & Kaart', {
             'fields': ('member', 'session_card', 'card_session_used', 'was_present')
         }),
         ('Sessie Details', {
-            'fields': ('session_date', 'is_past_session', 'title', 'description', 'location')
+            'fields': ('session_date', 'get_is_past_session', 'title', 'description', 'location')
         }),
         ('Capaciteit', {
             'fields': ('capacity', 'total_attendees', 'waiting_list')
@@ -33,8 +35,53 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         }),
     )
 
+    def get_readonly_fields(self, request, obj=None):
+        """Dynamically set readonly fields based on whether object exists"""
+        if obj:  # Editing existing object
+            return ['import_date', 'card_session_used', 'get_is_past_session']
+        else:  # Adding new object
+            return ['import_date', 'card_session_used']  # Don't show is_past for new objects
+    
+    def get_fieldsets(self, request, obj=None):
+        """Dynamically adjust fieldsets based on whether object exists"""
+        if obj:  # Editing existing object
+            return (
+                ('Lid & Kaart', {
+                    'fields': ('member', 'session_card', 'card_session_used', 'was_present')
+                }),
+                ('Sessie Details', {
+                    'fields': ('session_date', 'get_is_past_session', 'title', 'description', 'location')
+                }),
+                ('Capaciteit', {
+                    'fields': ('capacity', 'total_attendees', 'waiting_list')
+                }),
+                ('Tracking', {
+                    'fields': ('created_by', 'modified_by', 'import_date', 'notes'),
+                    'classes': ('collapse',)
+                }),
+            )
+        else:  # Adding new object - simplified fieldset
+            return (
+                ('Lid & Kaart', {
+                    'fields': ('member', 'session_card', 'was_present')
+                }),
+                ('Sessie Details', {
+                    'fields': ('session_date', 'title', 'description', 'location')
+                }),
+                ('Capaciteit', {
+                    'fields': ('capacity', 'total_attendees', 'waiting_list')
+                }),
+                ('Tracking', {
+                    'fields': ('created_by', 'modified_by', 'notes'),
+                    'classes': ('collapse',)
+                }),
+            )
+
     def member_name_with_size(self, obj):
         """Display member name with shoe size"""
+        if not obj or not obj.member:
+            return '-'
+        
         # Use name if available, otherwise email
         if obj.member.first_name and obj.member.last_name:
             name = f"{obj.member.last_name}, {obj.member.first_name}"
@@ -50,40 +97,45 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
 
     def card_used(self, obj):
         """Display which card was used with visual indicator"""
-        if obj.session_card:
-            is_trial = obj.session_card.card_category == 'trial'
-            trial_icon = '🎓' if is_trial else ''
-            color = 'green' if obj.card_session_used else 'orange'
-            symbol = '✓' if obj.card_session_used else '○'
-            return format_html(
-                '<span style="color: {};">{} {}{}</span>',
-                color, symbol, trial_icon, obj.session_card.card_type
-            )
-        return format_html('<span style="color: gray;">Geen kaart</span>')
+        if not obj or not obj.session_card:
+            return format_html('<span style="color: gray;">Geen kaart</span>')
+        
+        is_trial = obj.session_card.card_category == 'trial'
+        trial_icon = '🎓' if is_trial else ''
+        color = 'green' if obj.card_session_used else 'orange'
+        symbol = '✓' if obj.card_session_used else '○'
+        return format_html(
+            '<span style="color: {};">{} {}{}</span>',
+            color, symbol, trial_icon, obj.session_card.card_type
+        )
     card_used.short_description = 'Kaart'
     
     def card_status(self, obj):
         """Show if card session was consumed"""
-        if obj.session_card:
-            if obj.card_session_used:
-                return format_html(
-                    '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
-                )
+        if not obj or not obj.session_card:
+            return format_html('<span style="color: gray;">-</span>')
+        
+        if obj.card_session_used:
+            return format_html(
+                '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
+            )
+        else:
+            # Handle case where session_date is None
+            if obj.session_date:
+                past = " (niet verleden)" if not obj.is_in_past else ""
             else:
-                # Handle case where session_date is None
-                if obj.session_date:
-                    past = " (niet verleden)" if not obj.is_in_past else ""
-                else:
-                    past = ""
-                return format_html(
-                    '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld{}</span>',
-                    past
-                )
-        return format_html('<span style="color: gray;">-</span>')
+                past = ""
+            return format_html(
+                '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld{}</span>',
+                past
+            )
     card_status.short_description = 'Status'
     
     def was_present_badge(self, obj):
         """Show attendance status"""
+        if not obj:
+            return format_html('<span style="color: gray;">-</span>')
+        
         if obj.was_present:
             return format_html(
                 '<span style="color: green; font-weight: bold;">✓ Ja</span>'
@@ -93,15 +145,19 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         )
     was_present_badge.short_description = 'Aanwezig'
     
-    def is_past_session(self, obj):
-        """Show if session is in the past"""
-        # Handle case where session_date is None (new unsaved record)
-        if not obj.session_date:
+    def get_is_past_session(self, obj):
+        """Show if session is in the past - safe version for readonly field"""
+        if not obj or not obj.pk:
             return format_html('<span style="color: gray;">-</span>')
+        
+        # Handle case where session_date is None
+        if not obj.session_date:
+            return format_html('<span style="color: gray;">Nog geen datum</span>')
+        
         if obj.is_in_past:
             return format_html('<span style="color: green;">✓ Verleden</span>')
         return format_html('<span style="color: orange;">○ Toekomst</span>')
-    is_past_session.short_description = 'Tijdstip'
+    get_is_past_session.short_description = 'Tijdstip'
 
     actions = ['print_attendance_list']
 
