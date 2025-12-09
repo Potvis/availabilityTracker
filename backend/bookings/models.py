@@ -73,66 +73,100 @@ class CSVImport(models.Model):
         return f"{self.filename} - {self.imported_at.strftime('%d-%m-%Y %H:%M')}"
 
 
-# Signal handlers for automatic card usage tracking
-@receiver(post_save, sender=SessionAttendance)
-def use_card_session_on_save(sender, instance, created, **kwargs):
-    """
-    Automatically use a session from the card when attendance is linked to a card.
-    Only charges if session date is in the past (already occurred).
-    """
-    # Only process if there's a card linked and we haven't already used it
-    if instance.session_card and not instance.card_session_used:
-        # IMPORTANT: Only charge if session date is in the past
-        if not instance.is_in_past:
-            print(f"⏭ Session {instance} is in the future - not charging card yet")
-            return
-            
-        try:
-            card = instance.session_card
-            
-            # Check if card is valid (active and has sessions remaining)
-            if card.status == 'active' and card.sessions_remaining > 0:
-                # Increment sessions used
-                card.sessions_used += 1
+    # Signal handlers for automatic card usage tracking
+    @receiver(post_save, sender=SessionAttendance)
+    def use_card_session_on_save(sender, instance, created, **kwargs):
+        """
+        Automatically use a session from the card when attendance is linked to a card.
+        Only charges if session date is in the past (already occurred).
+        """
+        # Only process if there's a card linked and we haven't already used it
+        if instance.session_card and not instance.card_session_used:
+            # IMPORTANT: Only charge if session date is in the past
+            if not instance.is_in_past:
+                print(f"⏭ Session {instance} is in the future - not charging card yet")
+                return
                 
-                # Auto-update status if all sessions are now used
-                if card.sessions_used >= card.total_sessions:
-                    card.status = 'completed'
+            try:
+                card = instance.session_card
+                
+                # Check if card is valid (active and has sessions remaining)
+                if card.status == 'active' and card.sessions_remaining > 0:
+                    # Increment sessions used
+                    card.sessions_used += 1
+                    
+                    # Auto-update status if all sessions are now used
+                    if card.sessions_used >= card.total_sessions:
+                        card.status = 'completed'
+                    
+                    card.save()
+                    
+                    # Mark that we've consumed a session from this card
+                    # Use update() to avoid triggering the signal again
+                    SessionAttendance.objects.filter(pk=instance.pk).update(card_session_used=True)
+                    
+                    trial_msg = " (OEFENBEURT)" if card.is_trial else ""
+                    print(f"✓ Card session used{trial_msg}: {card} (now {card.sessions_remaining} remaining)")
+                else:
+                    print(f"⚠ Card {card} cannot be used (status: {card.status}, remaining: {card.sessions_remaining})")
+                    
+            except Exception as e:
+                print(f"❌ Error using card session: {e}")
+        
+        # NEW: If no card assigned but member has active cards, assign one
+        elif not instance.session_card and instance.is_in_past:
+            try:
+                active_cards = instance.member.active_cards()
+                if active_cards.exists():
+                    card = active_cards.first()
+                    print(f"🔗 Auto-assigning card to past session: {instance.member.full_name} → {card.card_type}")
+                    
+                    # Assign card
+                    instance.session_card = card
+                    
+                    # Charge immediately since it's in the past
+                    if card.status == 'active' and card.sessions_remaining > 0:
+                        card.sessions_used += 1
+                        if card.sessions_used >= card.total_sessions:
+                            card.status = 'completed'
+                        card.save()
+                        
+                        # Update instance with both card and charged status
+                        SessionAttendance.objects.filter(pk=instance.pk).update(
+                            session_card=card,
+                            card_session_used=True
+                        )
+                        
+                        trial_msg = " (OEFENBEURT)" if card.is_trial else ""
+                        print(f"✓ Auto-charged{trial_msg}: {card} (now {card.sessions_remaining} remaining)")
+                    else:
+                        # Just assign card without charging
+                        SessionAttendance.objects.filter(pk=instance.pk).update(session_card=card)
+                        print(f"⚠ Card assigned but not charged (status: {card.status})")
+                        
+            except Exception as e:
+                print(f"❌ Error auto-assigning card: {e}")
+
+
+    @receiver(pre_delete, sender=SessionAttendance)
+    def return_card_session_on_delete(sender, instance, **kwargs):
+        """
+        Return a session to the card when attendance is deleted.
+        This allows admin to correct mistakes by deleting incorrect attendances.
+        """
+        if instance.session_card and instance.card_session_used:
+            try:
+                card = instance.session_card
+                
+                # Decrement sessions used (can't go below 0)
+                card.sessions_used = max(0, card.sessions_used - 1)
+                
+                # If card was marked completed but now has sessions, reactivate it
+                if card.status == 'completed' and card.sessions_remaining > 0:
+                    card.status = 'active'
                 
                 card.save()
+                print(f"✓ Card session returned: {card} (now {card.sessions_remaining} remaining)")
                 
-                # Mark that we've consumed a session from this card
-                # Use update() to avoid triggering the signal again
-                SessionAttendance.objects.filter(pk=instance.pk).update(card_session_used=True)
-                
-                trial_msg = " (OEFENBEURT)" if card.is_trial else ""
-                print(f"✓ Card session used{trial_msg}: {card} (now {card.sessions_remaining} remaining)")
-            else:
-                print(f"⚠ Card {card} cannot be used (status: {card.status}, remaining: {card.sessions_remaining})")
-                
-        except Exception as e:
-            print(f"❌ Error using card session: {e}")
-
-
-@receiver(pre_delete, sender=SessionAttendance)
-def return_card_session_on_delete(sender, instance, **kwargs):
-    """
-    Return a session to the card when attendance is deleted.
-    This allows admin to correct mistakes by deleting incorrect attendances.
-    """
-    if instance.session_card and instance.card_session_used:
-        try:
-            card = instance.session_card
-            
-            # Decrement sessions used (can't go below 0)
-            card.sessions_used = max(0, card.sessions_used - 1)
-            
-            # If card was marked completed but now has sessions, reactivate it
-            if card.status == 'completed' and card.sessions_remaining > 0:
-                card.status = 'active'
-            
-            card.save()
-            print(f"✓ Card session returned: {card} (now {card.sessions_remaining} remaining)")
-            
-        except Exception as e:
-            print(f"❌ Error returning card session: {e}")
+            except Exception as e:
+                print(f"❌ Error returning card session: {e}")
