@@ -4,6 +4,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from members.models import Member
 from cards.models import SessionCard
+from django.db.models.signals import post_save, pre_delete, pre_save
+from django.dispatch import receiver
 
 class SessionAttendance(models.Model):
     """Record of a member attending a session"""
@@ -74,12 +76,37 @@ class CSVImport(models.Model):
 
 
     # Signal handlers for automatic card usage tracking
+    # Track the previous state before saving
+    @receiver(pre_save, sender=SessionAttendance)
+    def track_card_changes(sender, instance, **kwargs):
+        """
+        Track if card was manually removed to prevent auto-reassignment
+        """
+        if instance.pk:  # Only for existing records
+            try:
+                old_instance = SessionAttendance.objects.get(pk=instance.pk)
+                # Store whether this is a manual card removal
+                instance._card_was_manually_removed = (
+                    old_instance.session_card is not None and 
+                    instance.session_card is None
+                )
+            except SessionAttendance.DoesNotExist:
+                instance._card_was_manually_removed = False
+        else:
+            instance._card_was_manually_removed = False
+
+
     @receiver(post_save, sender=SessionAttendance)
     def use_card_session_on_save(sender, instance, created, **kwargs):
         """
         Automatically use a session from the card when attendance is linked to a card.
         Only charges if session date is in the past (already occurred).
         """
+        # Check if card was manually removed - if so, don't auto-assign
+        if hasattr(instance, '_card_was_manually_removed') and instance._card_was_manually_removed:
+            print(f"⏭ Card manually removed for {instance.member.full_name} - skipping auto-assignment")
+            return
+        
         # Only process if there's a card linked and we haven't already used it
         if instance.session_card and not instance.card_session_used:
             # IMPORTANT: Only charge if session date is in the past
@@ -113,13 +140,17 @@ class CSVImport(models.Model):
             except Exception as e:
                 print(f"❌ Error using card session: {e}")
         
-        # NEW: If no card assigned but member has active cards, assign one
-        elif not instance.session_card and instance.is_in_past:
+        # Auto-assign card ONLY if:
+        # 1. No card is currently assigned
+        # 2. Session is in the past
+        # 3. This is a NEW record (created=True) - not an edit
+        # 4. Card wasn't manually removed
+        elif not instance.session_card and instance.is_in_past and created:
             try:
                 active_cards = instance.member.active_cards()
                 if active_cards.exists():
                     card = active_cards.first()
-                    print(f"🔗 Auto-assigning card to past session: {instance.member.full_name} → {card.card_type}")
+                    print(f"🔗 Auto-assigning card to new past session: {instance.member.full_name} → {card.card_type}")
                     
                     # Assign card
                     instance.session_card = card
