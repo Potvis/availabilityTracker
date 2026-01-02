@@ -1,3 +1,4 @@
+
 from django.urls import path
 from . import views
 
@@ -8,6 +9,11 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
+    
+    # Client Dashboard
+    path('dashboard/', views.client_dashboard, name='client_dashboard'),
+    path('book/<int:schedule_id>/', views.book_session, name='book_session'),
+    path('cancel/<int:booking_id>/', views.cancel_booking, name='cancel_booking'),
     
     # Profile management
     path('profile/', views.profile_view, name='profile'),

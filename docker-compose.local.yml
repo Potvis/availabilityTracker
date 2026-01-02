@@ -27,14 +27,14 @@ services:
       - ./backend:/app
       - ./media:/app/media
     ports:
-      - "8001:8000"
+      - "8000:8000"
     environment:
       - DB_PASSWORD=kangoo_dev_password_local
       - DATABASE_URL=postgresql://kangoo:kangoo_dev_password_local@db:5432/kangoo  # ← Change to kangoo
       - DEBUG=True
       - SECRET_KEY=local-dev-secret-key-change-this
       - ALLOWED_HOSTS=localhost,127.0.0.1
-      - CSRF_TRUSTED_ORIGINS=http://localhost:8001,http://127.0.0.1:8001
+      - CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
     depends_on:
       db:
         condition: service_healthy
