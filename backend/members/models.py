@@ -2,12 +2,33 @@ from django.db import models
 from django.core.validators import EmailValidator
 
 class Member(models.Model):
+    INSURANCE_STATUS_CHOICES = [
+        ('none', 'Geen Verzekering'),
+        ('requested', 'Aangevraagd (Contact Nodig)'),
+        ('pending', 'In Afwachting van Bevestiging'),
+        ('insured', 'Verzekerd'),
+    ]
+    
     email = models.EmailField(unique=True, validators=[EmailValidator()])
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     shoe_size = models.CharField(max_length=10, blank=True)
     phone = models.CharField(max_length=20, blank=True)
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, verbose_name='Notities')
+    
+    # Insurance fields
+    wants_insurance = models.BooleanField(
+        default=False,
+        verbose_name='Wil Verzekering',
+        help_text='Lid wil een verzekering afsluiten'
+    )
+    insurance_status = models.CharField(
+        max_length=20,
+        choices=INSURANCE_STATUS_CHOICES,
+        default='none',
+        verbose_name='Verzekering Status'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -29,7 +50,6 @@ class Member(models.Model):
 
     def total_sessions_attended(self):
         """Count total sessions attended by this member"""
-        # Fixed: was importing from sessions, should be bookings
         return self.attendances.count()
 
     def active_cards(self):
