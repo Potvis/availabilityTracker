@@ -14,7 +14,7 @@ from bookings.models import SessionAttendance
 def register(request):
     """User registration view"""
     if request.user.is_authenticated:
-        return redirect('bookings:dashboard')
+        return redirect('accounts:client_dashboard')
     
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
@@ -37,7 +37,7 @@ def register(request):
 def user_login(request):
     """User login view"""
     if request.user.is_authenticated:
-        return redirect('bookings:dashboard')
+        return redirect('accounts:client_dashboard')
     
     if request.method == 'POST':
         # Get email and password
@@ -63,7 +63,7 @@ def user_login(request):
                 return redirect('accounts:profile_complete')
             
             # Redirect to next or dashboard
-            next_url = request.GET.get('next', 'bookings:dashboard')
+            next_url = request.GET.get('next', 'accounts:client_dashboard')
             return redirect(next_url)
         else:
             messages.error(request, 'Ongeldige inloggegevens.')
@@ -97,7 +97,7 @@ def profile_complete(request):
     # Check if already complete
     if profile.profile_complete:
         messages.info(request, 'Uw profiel is al compleet.')
-        return redirect('bookings:dashboard')
+        return redirect('accounts:client_dashboard')
     
     if request.method == 'POST':
         form = ProfileCompletionForm(
@@ -108,10 +108,10 @@ def profile_complete(request):
         if form.is_valid():
             form.save()
             messages.success(
-                request, 
+                request,
                 'Profiel succesvol aangevuld! U kunt nu sessies boeken.'
             )
-            return redirect('bookings:dashboard')
+            return redirect('accounts:client_dashboard')
         else:
             messages.error(request, 'Corrigeer de fouten hieronder.')
     else:
