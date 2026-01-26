@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Jump4Fun Beheer{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">Jump4Fun Beheer</a></h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/custom_admin.css' %}">
+{% endblock %}
+
+{% block welcome-msg %}
+    {% if user.is_authenticated %}
+    Welkom, <strong>{{ user.get_short_name|default:user.get_username }}</strong>.
+    {% endif %}
+{% endblock %}
