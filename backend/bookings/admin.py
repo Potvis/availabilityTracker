@@ -11,20 +11,24 @@ from .utils import process_csv_import
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
-    list_display = ['member_name_with_size', 'title', 'session_date', 'location', 'card_used', 'card_status', 'was_present_badge', 'import_date']
+    list_display = ['member_name_with_size', 'title', 'session_date', 'location', 
+                    'card_used', 'card_status', 'was_present_badge', 'import_date']
     list_filter = ['session_date', 'location', 'title', 'card_session_used', 'was_present']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
     
-    # Remove is_past_session from readonly_fields to prevent error on add
-    readonly_fields = ['import_date', 'card_session_used', 'get_is_past_session']
+    readonly_fields = ['import_date', 'get_is_past_session']
     
     fieldsets = (
         ('Lid & Kaart', {
-            'fields': ('member', 'session_card', 'card_session_used', 'was_present')
+            'fields': ('member', 'session_card', 'was_present')
         }),
         ('Sessie Details', {
             'fields': ('session_date', 'get_is_past_session', 'title', 'description', 'location')
+        }),
+        ('Kaart Afrekening', {
+            'fields': ('card_session_used',),
+            'description': 'BELANGRIJK: Vink dit ALLEEN aan nadat het lid de aanwezigheidslijst heeft ondertekend!'
         }),
         ('Capaciteit', {
             'fields': ('capacity', 'total_attendees', 'waiting_list')
@@ -38,19 +42,23 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         """Dynamically set readonly fields based on whether object exists"""
         if obj:  # Editing existing object
-            return ['import_date', 'card_session_used', 'get_is_past_session']
+            return ['import_date', 'get_is_past_session']
         else:  # Adding new object
-            return ['import_date', 'card_session_used']  # Don't show is_past for new objects
+            return ['import_date']
     
     def get_fieldsets(self, request, obj=None):
         """Dynamically adjust fieldsets based on whether object exists"""
         if obj:  # Editing existing object
             return (
                 ('Lid & Kaart', {
-                    'fields': ('member', 'session_card', 'card_session_used', 'was_present')
+                    'fields': ('member', 'session_card', 'was_present')
                 }),
                 ('Sessie Details', {
                     'fields': ('session_date', 'get_is_past_session', 'title', 'description', 'location')
+                }),
+                ('Kaart Afrekening', {
+                    'fields': ('card_session_used',),
+                    'description': 'BELANGRIJK: Vink dit ALLEEN aan nadat het lid de aanwezigheidslijst heeft ondertekend!'
                 }),
                 ('Capaciteit', {
                     'fields': ('capacity', 'total_attendees', 'waiting_list')
@@ -60,7 +68,7 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
                     'classes': ('collapse',)
                 }),
             )
-        else:  # Adding new object - simplified fieldset
+        else:  # Adding new object
             return (
                 ('Lid & Kaart', {
                     'fields': ('member', 'session_card', 'was_present')
@@ -82,7 +90,6 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         if not obj or not obj.member:
             return '-'
         
-        # Use name if available, otherwise email
         if obj.member.first_name and obj.member.last_name:
             name = f"{obj.member.last_name}, {obj.member.first_name}"
         elif obj.member.last_name:
@@ -117,17 +124,13 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         
         if obj.card_session_used:
             return format_html(
-                '<span style="background-color: green; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Verbruikt</span>'
+                '<span style="background-color: green; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px; font-weight: bold;">✓ Afgerekend</span>'
             )
         else:
-            # Handle case where session_date is None
-            if obj.session_date:
-                past = " (niet verleden)" if not obj.is_in_past else ""
-            else:
-                past = ""
             return format_html(
-                '<span style="background-color: orange; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">○ Gekoppeld{}</span>',
-                past
+                '<span style="background-color: orange; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px; font-weight: bold;">○ Wacht op Handtekening</span>'
             )
     card_status.short_description = 'Status'
     
@@ -137,45 +140,66 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
             return format_html('<span style="color: gray;">-</span>')
         
         if obj.was_present:
-            return format_html(
-                '<span style="color: green; font-weight: bold;">✓ Ja</span>'
-            )
-        return format_html(
-            '<span style="color: red; font-weight: bold;">✗ Nee</span>'
-        )
+            return format_html('<span style="color: green; font-weight: bold;">✓ Ja</span>')
+        return format_html('<span style="color: red; font-weight: bold;">✗ Nee</span>')
     was_present_badge.short_description = 'Aanwezig'
     
     def get_is_past_session(self, obj):
-        """Show if session is in the past - safe version for readonly field"""
-        if not obj or not obj.pk:
+        """Show if session is in the past"""
+        if not obj or not obj.pk or not obj.session_date:
             return format_html('<span style="color: gray;">-</span>')
-        
-        # Handle case where session_date is None
-        if not obj.session_date:
-            return format_html('<span style="color: gray;">Nog geen datum</span>')
         
         if obj.is_in_past:
             return format_html('<span style="color: green;">✓ Verleden</span>')
         return format_html('<span style="color: orange;">○ Toekomst</span>')
     get_is_past_session.short_description = 'Tijdstip'
 
-    actions = ['print_attendance_list']
+    actions = ['print_attendance_list', 'charge_sessions_manually']
+
+    def charge_sessions_manually(self, request, queryset):
+        """Manually charge sessions for selected attendances"""
+        charged = 0
+        errors = []
+        
+        for attendance in queryset:
+            if not attendance.session_card:
+                errors.append(f"{attendance.member.full_name}: Geen kaart gekoppeld")
+                continue
+                
+            if attendance.card_session_used:
+                errors.append(f"{attendance.member.full_name}: Al afgerekend")
+                continue
+            
+            card = attendance.session_card
+            if card.status == 'active' and card.sessions_remaining > 0:
+                card.sessions_used += 1
+                if card.sessions_used >= card.total_sessions:
+                    card.status = 'completed'
+                card.save()
+                
+                attendance.card_session_used = True
+                attendance.save()
+                charged += 1
+            else:
+                errors.append(f"{attendance.member.full_name}: Kaart niet geldig (status: {card.status})")
+        
+        if charged:
+            self.message_user(request, f'{charged} sessie(s) afgerekend', messages.SUCCESS)
+        if errors:
+            self.message_user(request, f'Fouten: {", ".join(errors)}', messages.WARNING)
+    
+    charge_sessions_manually.short_description = '💳 Reken geselecteerde sessies af (NA handtekening!)'
 
     def print_attendance_list(self, request, queryset):
         """Generate printable attendance list"""
-        # Get attendances with related member data
-        attendances = list(queryset.select_related('member'))
+        attendances = list(queryset.select_related('member', 'session_card'))
         
-        # Sort alphabetically using Python
         def get_sort_key(attendance):
             member = attendance.member
-            # If member has both names, use "lastname, firstname"
             if member.last_name and member.first_name:
-                return f"{member.last_name.lower()}, {member.first_name.lower()}"
-            # If only last name
+                return f"{member.first_name.lower()}, {member.last_name.lower()}"
             elif member.last_name:
                 return member.last_name.lower()
-            # Otherwise use email
             else:
                 return member.email.lower()
         
@@ -192,16 +216,29 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         return HttpResponse(html)
     
     print_attendance_list.short_description = 'Print aanwezigheidslijst'
+    
+    def save_model(self, request, obj, form, change):
+        """Handle manual session charging when card_session_used is checked"""
+        if change and 'card_session_used' in form.changed_data:
+            if obj.card_session_used and obj.session_card:
+                card = obj.session_card
+                if card.status == 'active' and card.sessions_remaining > 0:
+                    card.sessions_used += 1
+                    if card.sessions_used >= card.total_sessions:
+                        card.status = 'completed'
+                    card.save()
+                    messages.success(request, f'Sessie afgerekend van kaart {card.card_type}')
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(CSVImport)
 class CSVImportAdmin(admin.ModelAdmin):
-    list_display = ['filename', 'imported_at', 'imported_by', 'rows_processed', 'rows_created', 'rows_skipped', 'status_badge']
+    list_display = ['filename', 'imported_at', 'imported_by', 'rows_processed', 
+                    'rows_created', 'rows_skipped', 'status_badge']
     list_filter = ['imported_at']
     search_fields = ['filename', 'imported_by']
     readonly_fields = ['imported_at', 'rows_processed', 'rows_created', 'rows_skipped', 'errors']
     
-    # Disable the default add form - we have a custom import view instead
     def has_add_permission(self, request):
         return False
     
@@ -221,10 +258,12 @@ class CSVImportAdmin(admin.ModelAdmin):
     def status_badge(self, obj):
         if obj.errors:
             return format_html(
-                '<span style="background-color: orange; color: white; padding: 3px 10px; border-radius: 3px;">Waarschuwingen</span>'
+                '<span style="background-color: orange; color: white; padding: 3px 10px; '
+                'border-radius: 3px;">Waarschuwingen</span>'
             )
         return format_html(
-            '<span style="background-color: green; color: white; padding: 3px 10px; border-radius: 3px;">Succesvol</span>'
+            '<span style="background-color: green; color: white; padding: 3px 10px; '
+            'border-radius: 3px;">Succesvol</span>'
         )
     status_badge.short_description = 'Status'
 
