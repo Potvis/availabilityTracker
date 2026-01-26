@@ -1,35 +1,17 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
-from .schedule_models import SessionSchedule, SessionBooking, SessionSizeCapacity
-
-
-class SessionSizeCapacityInline(admin.TabularInline):
-    """Inline admin for setting capacity per shoe size"""
-    model = SessionSizeCapacity
-    extra = 4  # Show 4 rows by default (S, M, L, XL)
-    max_num = 4
-    min_num = 0
-    verbose_name = 'Maat Capaciteit'
-    verbose_name_plural = 'Capaciteit per Schoenmaat'
-
-    def get_extra(self, request, obj=None, **kwargs):
-        """Show empty rows only for new sessions"""
-        if obj:
-            existing = obj.size_capacities.count()
-            return max(0, 4 - existing)
-        return 4
+from .schedule_models import SessionSchedule, SessionBooking
 
 
 @admin.register(SessionSchedule)
 class SessionScheduleAdmin(admin.ModelAdmin):
     list_display = [
-        'weekday_time_display', 'title', 'size_capacities_display',
+        'weekday_time_display', 'title', 'equipment_capacities_display',
         'total_capacity_display', 'is_active_badge', 'booking_window_display'
     ]
     list_filter = ['is_active', 'weekday', 'location']
     search_fields = ['title', 'description', 'location']
-    inlines = [SessionSizeCapacityInline]
 
     fieldsets = (
         ('Sessie Informatie', {
@@ -60,11 +42,12 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         )
     weekday_time_display.short_description = 'Dag & Tijd'
 
-    def size_capacities_display(self, obj):
-        """Display capacity per size with color badges"""
-        capacities = obj.size_capacities.all()
-        if not capacities:
-            return format_html('<span style="color: gray;">Geen maten ingesteld</span>')
+    def equipment_capacities_display(self, obj):
+        """Display capacity per size based on available equipment"""
+        capacities = SessionSchedule.get_equipment_capacities()
+
+        if sum(capacities.values()) == 0:
+            return format_html('<span style="color: gray;">Geen apparatuur beschikbaar</span>')
 
         colors = {
             'S': '#2196F3',
@@ -74,19 +57,20 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         }
 
         badges = []
-        for sc in capacities:
-            if sc.capacity > 0:
-                color = colors.get(sc.size_category, 'gray')
+        for size in ['S', 'M', 'L', 'XL']:
+            count = capacities.get(size, 0)
+            if count > 0:
+                color = colors.get(size, 'gray')
                 badges.append(
                     f'<span style="background-color: {color}; color: white; '
                     f'padding: 2px 8px; border-radius: 3px; font-size: 11px; '
-                    f'margin-right: 4px;">{sc.size_category}: {sc.capacity}</span>'
+                    f'margin-right: 4px;">{size}: {count}</span>'
                 )
 
         return format_html(' '.join(badges)) if badges else format_html(
             '<span style="color: gray;">Geen capaciteit</span>'
         )
-    size_capacities_display.short_description = 'Maten'
+    equipment_capacities_display.short_description = 'Apparatuur'
 
     def total_capacity_display(self, obj):
         """Display total capacity across all sizes"""

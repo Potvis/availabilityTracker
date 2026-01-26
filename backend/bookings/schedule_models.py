@@ -89,15 +89,14 @@ class SessionSchedule(models.Model):
 
     @property
     def total_capacity(self):
-        """Get total capacity across all sizes"""
-        return sum(sc.capacity for sc in self.size_capacities.all())
+        """Get total capacity across all sizes based on available equipment"""
+        from equipment.models import Equipment
+        return Equipment.objects.filter(status='available').count()
 
     def get_capacity_for_size(self, size_category):
-        """Get capacity for a specific size category"""
-        try:
-            return self.size_capacities.get(size_category=size_category).capacity
-        except SessionSizeCapacity.DoesNotExist:
-            return 0
+        """Get capacity for a specific size category based on available equipment"""
+        from equipment.models import Equipment
+        return Equipment.objects.filter(status='available', size=size_category).count()
     
     def get_next_occurrence(self, from_date=None):
         """Get the next occurrence of this session schedule"""
@@ -170,14 +169,17 @@ class SessionSchedule(models.Model):
 
         # Return total available across all sizes
         from bookings.models import SessionAttendance
+        from equipment.models import Equipment
+
         total_available = 0
-        for sc in self.size_capacities.all():
+        for size in ['S', 'M', 'L', 'XL']:
+            equipment_count = Equipment.objects.filter(status='available', size=size).count()
             booked = SessionAttendance.objects.filter(
                 session_date=session_datetime,
                 title=self.title,
-                size_category=sc.size_category
+                size_category=size
             ).count()
-            total_available += max(0, sc.capacity - booked)
+            total_available += max(0, equipment_count - booked)
         return total_available
 
     def can_book(self, session_datetime, size_category=None):
@@ -189,39 +191,26 @@ class SessionSchedule(models.Model):
         )
 
     def has_capacity_for_size(self, size_category):
-        """Check if this session has any capacity defined for a size"""
-        return self.size_capacities.filter(size_category=size_category).exists()
+        """Check if there is available equipment for this size"""
+        from equipment.models import Equipment
+        return Equipment.objects.filter(status='available', size=size_category).exists()
 
+    @staticmethod
+    def get_equipment_capacities():
+        """Get available equipment count per size category"""
+        from equipment.models import Equipment
+        from django.db.models import Count
 
-class SessionSizeCapacity(models.Model):
-    """
-    Defines the capacity for each shoe size category within a session.
-    This allows setting different numbers of available shoes per size.
-    """
-    session = models.ForeignKey(
-        SessionSchedule,
-        on_delete=models.CASCADE,
-        related_name='size_capacities'
-    )
-    size_category = models.CharField(
-        max_length=5,
-        choices=SIZE_CATEGORY_CHOICES,
-        help_text="Schoenmaat categorie"
-    )
-    capacity = models.IntegerField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(50)],
-        help_text="Aantal beschikbare schoenen voor deze maat"
-    )
-
-    class Meta:
-        verbose_name = 'Maat Capaciteit'
-        verbose_name_plural = 'Maat Capaciteiten'
-        unique_together = ['session', 'size_category']
-        ordering = ['size_category']
-
-    def __str__(self):
-        return f"{self.session.title} - {self.get_size_category_display()}: {self.capacity}"
+        counts = Equipment.objects.filter(status='available').values('size').annotate(
+            count=Count('id')
+        )
+        # Convert to dict
+        result = {item['size']: item['count'] for item in counts}
+        # Ensure all sizes are present
+        for size in ['S', 'M', 'L', 'XL']:
+            if size not in result:
+                result[size] = 0
+        return result
 
 
 class SessionBooking(models.Model):
