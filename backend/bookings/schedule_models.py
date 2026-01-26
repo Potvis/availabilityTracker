@@ -4,6 +4,14 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+SIZE_CATEGORY_CHOICES = [
+    ('S', 'Small (32-36)'),
+    ('M', 'Medium (37-41)'),
+    ('L', 'Large (42-46)'),
+    ('XL', 'Extra Large (47+)'),
+]
+
+
 class SessionSchedule(models.Model):
     """
     Defines when sessions are available for booking.
@@ -18,25 +26,11 @@ class SessionSchedule(models.Model):
         (5, 'Zaterdag'),
         (6, 'Zondag'),
     ]
-    
-    SIZE_CATEGORY_CHOICES = [
-        ('S', 'Small (32-36)'),
-        ('M', 'Medium (37-41)'),
-        ('L', 'Large (42-46)'),
-        ('XL', 'Extra Large (47+)'),
-    ]
-    
+
     # Session details
     title = models.CharField(max_length=200, default='Kangoo Jumping Sessie')
     description = models.TextField(blank=True)
-    
-    # Size category this session is for
-    size_category = models.CharField(
-        max_length=5, 
-        choices=SIZE_CATEGORY_CHOICES,
-        help_text="Schoenmaat categorie voor deze sessie"
-    )
-    
+
     # Scheduling
     weekday = models.IntegerField(
         choices=WEEKDAY_CHOICES,
@@ -48,17 +42,10 @@ class SessionSchedule(models.Model):
         validators=[MinValueValidator(15), MaxValueValidator(180)],
         help_text="Duur van de sessie in minuten"
     )
-    
+
     # Location
     location = models.CharField(max_length=200, default='Deinze Kouter 93')
-    
-    # Capacity
-    max_capacity = models.IntegerField(
-        default=15,
-        validators=[MinValueValidator(1), MaxValueValidator(50)],
-        help_text="Maximum aantal deelnemers"
-    )
-    
+
     # Booking window
     booking_opens_days_before = models.IntegerField(
         default=14,
@@ -70,7 +57,7 @@ class SessionSchedule(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(48)],
         help_text="Hoeveel uur van tevoren sluit de boeking"
     )
-    
+
     # Validity period
     start_date = models.DateField(
         help_text="Vanaf welke datum is deze sessie geldig"
@@ -80,93 +67,161 @@ class SessionSchedule(models.Model):
         blank=True,
         help_text="Tot welke datum is deze sessie geldig (leeg = onbeperkt)"
     )
-    
+
     # Status
     is_active = models.BooleanField(
         default=True,
         help_text="Is deze sessie actief en boekbaar"
     )
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.CharField(max_length=100, blank=True)
-    
+
     class Meta:
         ordering = ['weekday', 'start_time']
         verbose_name = 'Sessie Schema'
         verbose_name_plural = 'Sessie Schemas'
-    
+
     def __str__(self):
-        return f"{self.get_weekday_display()} {self.start_time.strftime('%H:%M')} - {self.title} (Maat {self.size_category})"
+        return f"{self.get_weekday_display()} {self.start_time.strftime('%H:%M')} - {self.title}"
+
+    @property
+    def total_capacity(self):
+        """Get total capacity across all sizes"""
+        return sum(sc.capacity for sc in self.size_capacities.all())
+
+    def get_capacity_for_size(self, size_category):
+        """Get capacity for a specific size category"""
+        try:
+            return self.size_capacities.get(size_category=size_category).capacity
+        except SessionSizeCapacity.DoesNotExist:
+            return 0
     
     def get_next_occurrence(self, from_date=None):
         """Get the next occurrence of this session schedule"""
         if from_date is None:
             from_date = timezone.now().date()
-        
+
         # Find the next occurrence of this weekday
         days_ahead = self.weekday - from_date.weekday()
         if days_ahead <= 0:  # Target day already happened this week
             days_ahead += 7
-        
+
         next_date = from_date + timedelta(days=days_ahead)
-        
+
         # Check if it's within validity period
         if next_date < self.start_date:
             next_date = self.start_date
-        
+
         if self.end_date and next_date > self.end_date:
             return None
-        
+
         # Combine date and time
         next_datetime = timezone.datetime.combine(
-            next_date, 
-            self.start_time, 
+            next_date,
+            self.start_time,
             tzinfo=timezone.get_current_timezone()
         )
-        
+
         return next_datetime
-    
+
     def is_booking_open(self, session_datetime):
         """Check if booking is currently open for a specific session occurrence"""
         now = timezone.now()
-        
+
         # Check if session is in the future
         if session_datetime <= now:
             return False
-        
+
         # Check if booking window has opened
         booking_opens = session_datetime - timedelta(days=self.booking_opens_days_before)
         if now < booking_opens:
             return False
-        
+
         # Check if booking window has closed
         booking_closes = session_datetime - timedelta(hours=self.booking_closes_hours_before)
         if now > booking_closes:
             return False
-        
+
         return True
-    
-    def get_available_capacity(self, session_datetime):
-        """Get available capacity for a specific session occurrence"""
+
+    def get_available_capacity_for_size(self, session_datetime, size_category):
+        """Get available capacity for a specific size category"""
         from bookings.models import SessionAttendance
-        
-        # Count existing bookings for this specific date/time
+
+        # Get total capacity for this size
+        total_capacity = self.get_capacity_for_size(size_category)
+
+        # Count existing bookings for this specific date/time and size
         booked_count = SessionAttendance.objects.filter(
             session_date=session_datetime,
-            title=self.title
+            title=self.title,
+            size_category=size_category
         ).count()
-        
-        return max(0, self.max_capacity - booked_count)
-    
-    def can_book(self, session_datetime):
+
+        return max(0, total_capacity - booked_count)
+
+    def get_available_capacity(self, session_datetime, size_category=None):
+        """Get available capacity for a specific session occurrence"""
+        if size_category:
+            return self.get_available_capacity_for_size(session_datetime, size_category)
+
+        # Return total available across all sizes
+        from bookings.models import SessionAttendance
+        total_available = 0
+        for sc in self.size_capacities.all():
+            booked = SessionAttendance.objects.filter(
+                session_date=session_datetime,
+                title=self.title,
+                size_category=sc.size_category
+            ).count()
+            total_available += max(0, sc.capacity - booked)
+        return total_available
+
+    def can_book(self, session_datetime, size_category=None):
         """Check if a session can be booked"""
         return (
             self.is_active and
             self.is_booking_open(session_datetime) and
-            self.get_available_capacity(session_datetime) > 0
+            self.get_available_capacity(session_datetime, size_category) > 0
         )
+
+    def has_capacity_for_size(self, size_category):
+        """Check if this session has any capacity defined for a size"""
+        return self.size_capacities.filter(size_category=size_category).exists()
+
+
+class SessionSizeCapacity(models.Model):
+    """
+    Defines the capacity for each shoe size category within a session.
+    This allows setting different numbers of available shoes per size.
+    """
+    session = models.ForeignKey(
+        SessionSchedule,
+        on_delete=models.CASCADE,
+        related_name='size_capacities'
+    )
+    size_category = models.CharField(
+        max_length=5,
+        choices=SIZE_CATEGORY_CHOICES,
+        help_text="Schoenmaat categorie"
+    )
+    capacity = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(50)],
+        help_text="Aantal beschikbare schoenen voor deze maat"
+    )
+
+    class Meta:
+        verbose_name = 'Maat Capaciteit'
+        verbose_name_plural = 'Maat Capaciteiten'
+        unique_together = ['session', 'size_category']
+        ordering = ['size_category']
+
+    def __str__(self):
+        return f"{self.session.title} - {self.get_size_category_display()}: {self.capacity}"
 
 
 class SessionBooking(models.Model):

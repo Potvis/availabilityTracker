@@ -275,7 +275,29 @@ textarea:focus, select:focus {
 /* Select boxes */
 select {
     background: white !important;
+    color: var(--text-primary) !important;
     cursor: pointer !important;
+    -webkit-appearance: menulist !important;
+    -moz-appearance: menulist !important;
+    appearance: menulist !important;
+}
+
+select option {
+    background: white !important;
+    color: var(--text-primary) !important;
+    padding: 8px 12px !important;
+}
+
+select option:checked,
+select option:hover {
+    background: var(--bg-light) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Ensure select text is visible */
+select:not([multiple]) {
+    background-color: white !important;
+    color: #333 !important;
 }
 
 /* Related widget */
@@ -552,5 +574,10 @@ body.login #content-main {
         background: #374151 !important;
         color: #f3f4f6 !important;
         border-color: #4b5563 !important;
+    }
+
+    select option {
+        background: #374151 !important;
+        color: #f3f4f6 !important;
     }
 }

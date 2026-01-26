@@ -244,13 +244,18 @@ def client_dashboard(request):
     # Get member's size category for filtering sessions
     from equipment.assignment import get_size_category_from_shoe_size
     size_category = get_size_category_from_shoe_size(member.shoe_size)
-    
-    # Get active session schedules for their size
-    available_schedules = SessionSchedule.objects.filter(
-        is_active=True,
-        size_category=size_category
-    ).order_by('weekday', 'start_time')
-    
+
+    # Get active session schedules that have capacity for their size
+    all_active_schedules = SessionSchedule.objects.filter(
+        is_active=True
+    ).prefetch_related('size_capacities').order_by('weekday', 'start_time')
+
+    # Filter to schedules that have capacity for this size
+    available_schedules = [
+        s for s in all_active_schedules
+        if s.has_capacity_for_size(size_category)
+    ]
+
     # Get upcoming sessions (next 2 weeks)
     upcoming_sessions = []
     now = timezone.now()
@@ -260,7 +265,10 @@ def client_dashboard(request):
         for i in range(4):
             next_occurrence = schedule.get_next_occurrence(current_date)
             if next_occurrence and schedule.is_booking_open(next_occurrence):
-                available_capacity = schedule.get_available_capacity(next_occurrence)
+                # Check availability for this specific size
+                available_capacity = schedule.get_available_capacity_for_size(
+                    next_occurrence, size_category
+                )
                 upcoming_sessions.append({
                     'schedule': schedule,
                     'datetime': next_occurrence,
@@ -335,29 +343,33 @@ def book_session(request, schedule_id):
         schedule = SessionSchedule.objects.get(id=schedule_id)
         session_datetime_str = request.POST.get('session_datetime')
         session_datetime = timezone.datetime.fromisoformat(session_datetime_str)
-        
+
+        # Get member's size category
+        from equipment.assignment import get_size_category_from_shoe_size
+        size_category = get_size_category_from_shoe_size(member.shoe_size)
+
         # Check if booking is open
         if not schedule.is_booking_open(session_datetime):
             messages.error(request, 'Deze sessie is niet meer beschikbaar voor boeking.')
             return redirect('accounts:client_dashboard')
-        
-        # Check capacity
-        if schedule.get_available_capacity(session_datetime) <= 0:
-            messages.error(request, 'Deze sessie is vol.')
+
+        # Check capacity for this size
+        if schedule.get_available_capacity_for_size(session_datetime, size_category) <= 0:
+            messages.error(request, 'Deze sessie is vol voor uw schoenmaat.')
             return redirect('accounts:client_dashboard')
-        
+
         # Check if already booked
         existing = SessionAttendance.objects.filter(
             member=member,
             session_date=session_datetime,
             title=schedule.title
         ).exists()
-        
+
         if existing:
             messages.warning(request, 'U bent al ingeschreven voor deze sessie.')
             return redirect('accounts:client_dashboard')
-        
-        # Create attendance record
+
+        # Create attendance record with size category
         card = active_cards.first()
         attendance = SessionAttendance.objects.create(
             member=member,
@@ -366,7 +378,8 @@ def book_session(request, schedule_id):
             title=schedule.title,
             description=schedule.description,
             location=schedule.location,
-            capacity=schedule.max_capacity,
+            capacity=schedule.total_capacity,
+            size_category=size_category,
             created_by=request.user.username
         )
         
