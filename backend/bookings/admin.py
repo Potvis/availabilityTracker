@@ -197,7 +197,7 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         def get_sort_key(attendance):
             member = attendance.member
             if member.last_name and member.first_name:
-                return f"{member.last_name.lower()}, {member.first_name.lower()}"
+                return f"{member.first_name.lower()}, {member.last_name.lower()}"
             elif member.last_name:
                 return member.last_name.lower()
             else:

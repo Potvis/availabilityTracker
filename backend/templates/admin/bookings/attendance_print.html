@@ -219,7 +219,7 @@
                 <td>{{ forloop.counter }}</td>
                 <td>
                     {% if attendance.member.first_name and attendance.member.last_name %}
-                        <strong>{{ attendance.member.last_name|upper }}, {{ attendance.member.first_name }}</strong>
+                        <strong>{{ attendance.member.first_name }}, {{ attendance.member.last_name|upper }}</strong>
                     {% else %}
                         <strong>{{ attendance.member.email }}</strong>
                     {% endif %}
