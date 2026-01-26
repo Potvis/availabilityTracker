@@ -95,5 +95,5 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
-#staticfiles
-/backend/staticfiles/
+#static files
+backend/staticfiles/
