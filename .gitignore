@@ -94,3 +94,6 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+#staticfiles
+/backend/staticfiles/
