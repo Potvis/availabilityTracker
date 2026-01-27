@@ -3,6 +3,8 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.conf import settings
 from .forms import UserRegistrationForm, UserLoginForm, ProfileCompletionForm, QuickProfileUpdateForm
 from .models import UserProfile
 from equipment.assignment import get_equipment_requirements_display
@@ -316,29 +318,23 @@ def client_dashboard(request):
 @login_required
 def book_session(request, schedule_id):
     """
-    Book a session for the logged-in user
+    Book a session for the logged-in user.
+    A session card is optional - clients can book with or without one.
     """
     from bookings.schedule_models import SessionSchedule, SessionBooking
     from bookings.models import SessionAttendance
-    from django.http import JsonResponse
-    
+
     if request.method != 'POST':
         return redirect('accounts:client_dashboard')
-    
+
     profile = request.user.profile
     member = profile.member
-    
+
     # Check profile is complete
     if not profile.profile_complete:
         messages.error(request, 'Vul eerst uw profiel aan om te kunnen boeken.')
         return redirect('accounts:profile_complete')
-    
-    # Check member has active card
-    active_cards = member.active_cards()
-    if not active_cards.exists():
-        messages.error(request, 'U heeft geen actieve sessiekaart. Koop eerst een kaart.')
-        return redirect('accounts:client_dashboard')
-    
+
     try:
         schedule = SessionSchedule.objects.get(id=schedule_id)
         session_datetime_str = request.POST.get('session_datetime')
@@ -369,8 +365,15 @@ def book_session(request, schedule_id):
             messages.warning(request, 'U bent al ingeschreven voor deze sessie.')
             return redirect('accounts:client_dashboard')
 
+        # Check if client wants to use a session card
+        use_card = request.POST.get('use_card') == '1'
+        card = None
+        if use_card:
+            active_cards = member.active_cards()
+            if active_cards.exists():
+                card = active_cards.first()
+
         # Create attendance record with size category
-        card = active_cards.first()
         attendance = SessionAttendance.objects.create(
             member=member,
             session_card=card,
@@ -382,22 +385,23 @@ def book_session(request, schedule_id):
             size_category=size_category,
             created_by=request.user.username
         )
-        
+
         # Create booking
         booking = SessionBooking.objects.create(
             schedule=schedule,
             session_datetime=session_datetime,
             attendance=attendance
         )
-        
+
+        card_msg = ' (sessiekaart wordt gebruikt)' if card else ' (zonder sessiekaart)'
         messages.success(
-            request, 
-            f'Succesvol ingeschreven voor {schedule.title} op {session_datetime.strftime("%d-%m-%Y om %H:%M")}!'
+            request,
+            f'Succesvol ingeschreven voor {schedule.title} op {session_datetime.strftime("%d-%m-%Y om %H:%M")}!{card_msg}'
         )
-        
+
     except Exception as e:
         messages.error(request, f'Fout bij boeking: {str(e)}')
-    
+
     return redirect('accounts:client_dashboard')
 
 
@@ -434,5 +438,68 @@ def cancel_booking(request, booking_id):
         messages.error(request, 'Boeking niet gevonden.')
     except Exception as e:
         messages.error(request, f'Fout bij annulering: {str(e)}')
-    
+
+    return redirect('accounts:client_dashboard')
+
+
+@login_required
+def request_session_card(request):
+    """
+    Allow clients to request a session card.
+    Sends an email notification to all admin (staff) users.
+    """
+    if request.method != 'POST':
+        return redirect('accounts:client_dashboard')
+
+    profile = request.user.profile
+    member = profile.member
+
+    # Get all admin email addresses
+    admin_emails = list(
+        User.objects.filter(is_staff=True)
+        .exclude(email='')
+        .values_list('email', flat=True)
+    )
+
+    if admin_emails:
+        subject = f'Sessiekaart Aanvraag - {member.full_name}'
+        message = (
+            f'Beste beheerder,\n\n'
+            f'{member.full_name} ({member.email}) heeft een sessiekaart aangevraagd.\n\n'
+            f'Gegevens:\n'
+            f'  Naam: {member.full_name}\n'
+            f'  E-mail: {member.email}\n'
+            f'  Telefoon: {member.phone or "Niet opgegeven"}\n'
+            f'  Schoenmaat: {member.shoe_size or "Niet opgegeven"}\n\n'
+            f'Gelieve deze aanvraag te verwerken in het admin paneel.\n\n'
+            f'Met vriendelijke groeten,\n'
+            f'Jump4Fun Systeem'
+        )
+
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                admin_emails,
+                fail_silently=False,
+            )
+            messages.success(
+                request,
+                'Uw aanvraag voor een sessiekaart is verstuurd. '
+                'De beheerders zijn per e-mail op de hoogte gebracht.'
+            )
+        except Exception as e:
+            messages.warning(
+                request,
+                'Uw aanvraag is geregistreerd, maar de e-mail kon niet worden verzonden. '
+                'Neem eventueel rechtstreeks contact op met de beheerder.'
+            )
+    else:
+        messages.warning(
+            request,
+            'Er zijn geen beheerders geconfigureerd om de aanvraag te ontvangen. '
+            'Neem rechtstreeks contact op.'
+        )
+
     return redirect('accounts:client_dashboard')

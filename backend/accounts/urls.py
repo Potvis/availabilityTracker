@@ -14,6 +14,7 @@ urlpatterns = [
     path('dashboard/', views.client_dashboard, name='client_dashboard'),
     path('book/<int:schedule_id>/', views.book_session, name='book_session'),
     path('cancel/<int:booking_id>/', views.cancel_booking, name='cancel_booking'),
+    path('request-card/', views.request_session_card, name='request_card'),
     
     # Profile management
     path('profile/', views.profile_view, name='profile'),

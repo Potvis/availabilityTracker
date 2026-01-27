@@ -10,11 +10,15 @@ from .forms import CSVImportForm
 from .utils import process_csv_import
 
 def dashboard(request):
-    """Simple dashboard view"""
-    
-    # Redirect non-staff users to admin login
+    """Admin statistics dashboard view"""
+
+    # Redirect non-authenticated users to login
     if not request.user.is_authenticated:
-        return redirect('/admin/')
+        return redirect('accounts:login')
+
+    # Redirect non-staff users to client dashboard
+    if not request.user.is_staff:
+        return redirect('accounts:client_dashboard')
     
     # Calculate statistics
     total_members = Member.objects.count()

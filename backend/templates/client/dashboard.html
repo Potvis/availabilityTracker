@@ -309,7 +309,10 @@
                 <p style="color: #6b7280; margin-top: 5px;">Jump4Fun Client Portal</p>
             </div>
             <div class="header-actions">
-                <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">⚙️ Profiel</a>
+                {% if user.is_staff %}
+                <a href="{% url 'admin:index' %}" class="btn btn-primary">Admin Paneel</a>
+                {% endif %}
+                <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">Profiel</a>
                 <a href="{% url 'accounts:logout' %}" class="btn btn-secondary">Uitloggen</a>
             </div>
         </div>
@@ -374,9 +377,17 @@
                     <div class="empty-state">
                         <div class="empty-state-icon">🎫</div>
                         <p>Geen actieve kaarten</p>
-                        <p style="font-size: 12px; margin-top: 10px;">Neem contact op om een kaart te kopen</p>
                     </div>
                 {% endif %}
+                <div style="margin-top: 15px; text-align: center;">
+                    <form method="post" action="{% url 'accounts:request_card' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary" style="width: 100%;"
+                                onclick="return confirm('Wilt u een sessiekaart aanvragen? De beheerders worden per e-mail op de hoogte gebracht.');">
+                            Sessiekaart Aanvragen
+                        </button>
+                    </form>
+                </div>
             </div>
             
             <!-- Stats -->
@@ -413,14 +424,21 @@
                             <span>👥 {{ item.available_capacity }} van {{ item.schedule.max_capacity }} plaatsen vrij</span>
                         </div>
                     </div>
-                    {% if item.can_book and active_cards %}
+                    {% if item.can_book %}
                     <form method="post" action="{% url 'accounts:book_session' item.schedule.id %}">
                         {% csrf_token %}
                         <input type="hidden" name="session_datetime" value="{{ item.datetime|date:'c' }}">
-                        <button type="submit" class="btn btn-success">✓ Inschrijven</button>
+                        {% if active_cards %}
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333; cursor: pointer;">
+                                <input type="checkbox" name="use_card" value="1" checked
+                                       style="width: 18px; height: 18px; cursor: pointer;">
+                                Sessiekaart gebruiken ({{ active_cards.0.sessions_remaining }} beurten over)
+                            </label>
+                        </div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-success">Inschrijven</button>
                     </form>
-                    {% elif not active_cards %}
-                    <span class="badge badge-warning">Geen actieve kaart</span>
                     {% else %}
                     <span class="badge badge-danger">Vol</span>
                     {% endif %}

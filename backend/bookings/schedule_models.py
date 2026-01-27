@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from datetime import timedelta
-
+import uuid
 
 SIZE_CATEGORY_CHOICES = [
     ('S', 'Small (32-36)'),
@@ -10,7 +10,6 @@ SIZE_CATEGORY_CHOICES = [
     ('L', 'Large (42-46)'),
     ('XL', 'Extra Large (47+)'),
 ]
-
 
 class SessionSchedule(models.Model):
     """
@@ -257,3 +256,108 @@ class SessionBooking(models.Model):
             self.cancelled_at = timezone.now()
             self.cancellation_reason = reason
             self.save()
+
+class BusinessEvent(models.Model):
+    """
+    A private/business event session with a unique shareable link.
+    Guests can book via the link without needing an account.
+    """
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    location = models.CharField(max_length=200, default='Deinze Kouter 93')
+ 
+    event_datetime = models.DateTimeField(help_text="Datum en tijd van het evenement")
+    duration_minutes = models.IntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(180)],
+        help_text="Duur in minuten"
+    )
+ 
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+ 
+    max_capacity = models.IntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1)],
+        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op apparatuur)"
+    )
+ 
+    is_active = models.BooleanField(default=True, help_text="Is dit evenement nog open voor boekingen")
+ 
+    created_by = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+ 
+    class Meta:
+        ordering = ['-event_datetime']
+        verbose_name = 'Bedrijfsevenement'
+        verbose_name_plural = 'Bedrijfsevenementen'
+ 
+    def __str__(self):
+        return f"{self.title} - {self.event_datetime.strftime('%d-%m-%Y %H:%M')}"
+ 
+    @property
+    def is_in_future(self):
+        return self.event_datetime > timezone.now()
+ 
+    @property
+    def bookings_count(self):
+        return self.event_bookings.count()
+ 
+    def get_available_spots(self):
+        if self.max_capacity:
+            return max(0, self.max_capacity - self.bookings_count)
+        return None
+ 
+    def can_book(self):
+        return self.is_active and self.is_in_future and (
+            self.max_capacity is None or self.get_available_spots() > 0
+        )
+ 
+ 
+class BusinessEventBooking(models.Model):
+    """
+    A booking for a business event. Stores guest info directly so
+    guests can book without creating an account.
+    """
+    event = models.ForeignKey(
+        BusinessEvent,
+        on_delete=models.CASCADE,
+        related_name='event_bookings'
+    )
+ 
+    # Guest info (always stored here)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20, blank=True)
+    shoe_size = models.CharField(max_length=10)
+    weight = models.DecimalField(max_digits=5, decimal_places=2)
+ 
+    size_category = models.CharField(
+        max_length=5,
+        choices=SIZE_CATEGORY_CHOICES,
+        blank=True,
+    )
+ 
+    # Optional link to member (if guest opted in for account creation)
+    member = models.ForeignKey(
+        'members.Member',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='business_event_bookings'
+    )
+ 
+    booked_at = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['-booked_at']
+        verbose_name = 'Evenement Boeking'
+        verbose_name_plural = 'Evenement Boekingen'
+        unique_together = ['event', 'email']
+ 
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} - {self.event.title}"
+ 
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
