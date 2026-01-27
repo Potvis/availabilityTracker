@@ -250,7 +250,7 @@ def client_dashboard(request):
     # Get active session schedules that have capacity for their size
     all_active_schedules = SessionSchedule.objects.filter(
         is_active=True
-    ).prefetch_related('size_capacities').order_by('weekday', 'start_time')
+    ).order_by('weekday', 'start_time')
 
     # Filter to schedules that have capacity for this size
     available_schedules = [
