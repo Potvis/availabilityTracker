@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
-from .schedule_models import SessionSchedule, SessionBooking
+from .schedule_models import SessionSchedule, SessionBooking, BusinessEvent, BusinessEventBooking
 
 
 @admin.register(SessionSchedule)
@@ -225,10 +225,199 @@ class SessionBookingAdmin(admin.ModelAdmin):
         """Cancel selected bookings"""
         active_bookings = queryset.filter(cancelled_at__isnull=True)
         count = 0
-        
+
         for booking in active_bookings:
             booking.cancel(reason='Geannuleerd door admin')
             count += 1
-        
+
         self.message_user(request, f'{count} boeking(en) geannuleerd.')
     cancel_bookings.short_description = 'Annuleer geselecteerde boekingen'
+
+
+class BusinessEventBookingInline(admin.TabularInline):
+    model = BusinessEventBooking
+    extra = 0
+    readonly_fields = ['booked_at', 'size_category']
+    fields = [
+        'first_name', 'last_name', 'email', 'phone',
+        'shoe_size', 'weight', 'size_category', 'member', 'booked_at'
+    ]
+
+
+@admin.register(BusinessEvent)
+class BusinessEventAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'event_datetime_display', 'location',
+        'bookings_count_display', 'capacity_display',
+        'shareable_link_display', 'is_active_badge'
+    ]
+    list_filter = ['is_active', 'event_datetime', 'location']
+    search_fields = ['title', 'description', 'location']
+    readonly_fields = ['token', 'created_at', 'updated_at', 'shareable_link_readonly']
+    inlines = [BusinessEventBookingInline]
+
+    fieldsets = (
+        ('Evenement Informatie', {
+            'fields': ('title', 'description', 'location')
+        }),
+        ('Planning', {
+            'fields': ('event_datetime', 'duration_minutes')
+        }),
+        ('Capaciteit & Status', {
+            'fields': ('max_capacity', 'is_active')
+        }),
+        ('Deelbare Link', {
+            'fields': ('token', 'shareable_link_readonly'),
+            'description': 'Stuur deze link naar gasten zodat ze zich kunnen inschrijven.'
+        }),
+        ('Tracking', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def event_datetime_display(self, obj):
+        if obj.is_in_future:
+            color = '#667eea'
+        else:
+            color = '#6b7280'
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color, obj.event_datetime.strftime('%d-%m-%Y %H:%M')
+        )
+    event_datetime_display.short_description = 'Datum & Tijd'
+    event_datetime_display.admin_order_field = 'event_datetime'
+
+    def bookings_count_display(self, obj):
+        count = obj.bookings_count
+        return format_html(
+            '<span style="font-weight: bold;">{}</span>',
+            count
+        )
+    bookings_count_display.short_description = 'Boekingen'
+
+    def capacity_display(self, obj):
+        spots = obj.get_available_spots()
+        if spots is None:
+            return format_html('<span style="color: gray;">Onbeperkt</span>')
+        if spots > 0:
+            color = 'green' if spots > 3 else 'orange'
+        else:
+            color = 'red'
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{} vrij van {}</span>',
+            color, spots, obj.max_capacity
+        )
+    capacity_display.short_description = 'Capaciteit'
+
+    def shareable_link_display(self, obj):
+        return format_html(
+            '<code style="background: #f3f4f6; padding: 2px 8px; border-radius: 4px; '
+            'font-size: 11px;">/evenement/{}/</code>',
+            obj.token
+        )
+    shareable_link_display.short_description = 'Link'
+
+    def shareable_link_readonly(self, obj):
+        if obj.pk:
+            return format_html(
+                '<code style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; '
+                'font-size: 14px; display: inline-block;">'
+                '/evenement/{}/</code>'
+                '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
+                'Voeg het domein toe voor de volledige URL, bijv. https://uwdomein.be/evenement/{}/'
+                '</p>',
+                obj.token, obj.token
+            )
+        return '-'
+    shareable_link_readonly.short_description = 'Volledige Link'
+
+    def is_active_badge(self, obj):
+        if obj.is_active and obj.is_in_future:
+            return format_html(
+                '<span style="background-color: green; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold;">Actief</span>'
+            )
+        elif not obj.is_in_future:
+            return format_html(
+                '<span style="background-color: gray; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold;">Verlopen</span>'
+            )
+        return format_html(
+            '<span style="background-color: orange; color: white; padding: 3px 10px; '
+            'border-radius: 3px; font-weight: bold;">Inactief</span>'
+        )
+    is_active_badge.short_description = 'Status'
+
+    actions = ['activate_events', 'deactivate_events']
+
+    def activate_events(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} evenement(en) geactiveerd.')
+    activate_events.short_description = 'Activeer geselecteerde evenementen'
+
+    def deactivate_events(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f'{updated} evenement(en) gedeactiveerd.')
+    deactivate_events.short_description = 'Deactiveer geselecteerde evenementen'
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user.username if request.user.is_authenticated else 'admin'
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(BusinessEventBooking)
+class BusinessEventBookingAdmin(admin.ModelAdmin):
+    list_display = [
+        'guest_name', 'event_title', 'email', 'phone',
+        'shoe_size', 'weight', 'size_category', 'has_account_badge', 'booked_at'
+    ]
+    list_filter = ['event', 'size_category', 'booked_at']
+    search_fields = [
+        'first_name', 'last_name', 'email',
+        'event__title'
+    ]
+    readonly_fields = ['booked_at', 'size_category']
+    date_hierarchy = 'booked_at'
+
+    fieldsets = (
+        ('Evenement', {
+            'fields': ('event',)
+        }),
+        ('Gast Informatie', {
+            'fields': ('first_name', 'last_name', 'email', 'phone')
+        }),
+        ('Apparatuur', {
+            'fields': ('shoe_size', 'weight', 'size_category')
+        }),
+        ('Account', {
+            'fields': ('member',),
+            'description': 'Optioneel gekoppeld aan een lid (als de gast een account heeft aangemaakt).'
+        }),
+        ('Tracking', {
+            'fields': ('booked_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def guest_name(self, obj):
+        return obj.full_name
+    guest_name.short_description = 'Gast'
+    guest_name.admin_order_field = 'last_name'
+
+    def event_title(self, obj):
+        return obj.event.title
+    event_title.short_description = 'Evenement'
+
+    def has_account_badge(self, obj):
+        if obj.member:
+            return format_html(
+                '<span style="background-color: green; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px;">Lid</span>'
+            )
+        return format_html(
+            '<span style="background-color: gray; color: white; padding: 2px 8px; '
+            'border-radius: 3px; font-size: 11px;">Gast</span>'
+        )
+    has_account_badge.short_description = 'Account'
