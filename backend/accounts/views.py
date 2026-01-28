@@ -10,7 +10,7 @@ from .models import UserProfile
 from equipment.assignment import get_equipment_requirements_display
 from django.utils import timezone
 from datetime import timedelta
-from bookings.schedule_models import SessionSchedule
+from bookings.schedule_models import SessionSchedule, BusinessEventBooking
 from bookings.models import SessionAttendance
 
 def register(request):
@@ -300,7 +300,18 @@ def client_dashboard(request):
     
     # Equipment requirements
     equipment_req = get_equipment_requirements_display(member)
-    
+
+    # Get business event bookings for this member
+    upcoming_event_bookings = BusinessEventBooking.objects.filter(
+        member=member,
+        event__event_datetime__gte=now
+    ).select_related('event').order_by('event__event_datetime')
+
+    past_event_bookings = BusinessEventBooking.objects.filter(
+        member=member,
+        event__event_datetime__lt=now
+    ).select_related('event').order_by('-event__event_datetime')[:10]
+
     context = {
         'profile': profile,
         'member': member,
@@ -310,8 +321,10 @@ def client_dashboard(request):
         'active_cards': active_cards,
         'equipment_requirements': equipment_req,
         'size_category': size_category,
+        'upcoming_event_bookings': upcoming_event_bookings,
+        'past_event_bookings': past_event_bookings,
     }
-    
+
     return render(request, 'client/dashboard.html', context)
 
 

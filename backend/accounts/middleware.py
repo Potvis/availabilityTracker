@@ -12,6 +12,7 @@ class ProfileCompletionMiddleware:
         '/admin/',
         '/static/',
         '/media/',
+        '/evenement/',
     ]
     
     def __init__(self, get_response):

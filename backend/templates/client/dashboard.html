@@ -457,7 +457,7 @@
         <!-- My Bookings -->
         <div class="card" style="margin-bottom: 20px;">
             <h2>🎯 Mijn Boekingen</h2>
-            {% if my_bookings %}
+            {% if my_bookings or upcoming_event_bookings %}
             <div class="session-list">
                 {% for booking in my_bookings %}
                 <div class="session-item">
@@ -486,6 +486,23 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% for eb in upcoming_event_bookings %}
+                <div class="session-item" style="border-left-color: #764ba2;">
+                    <div class="session-header">
+                        <div>
+                            <div class="session-title">{{ eb.event.title }}</div>
+                            <div class="session-datetime">
+                                {{ eb.event.event_datetime|date:"l j F Y" }} om {{ eb.event.event_datetime|date:"H:i" }}
+                            </div>
+                        </div>
+                        <span class="badge badge-info">Evenement</span>
+                    </div>
+                    <div class="session-details">
+                        <div>📍 {{ eb.event.location }}</div>
+                        <div>⏱️ {{ eb.event.duration_minutes }} minuten</div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
             {% else %}
             <div class="empty-state">
@@ -495,9 +512,9 @@
             </div>
             {% endif %}
         </div>
-        
+
         <!-- Past Sessions -->
-        {% if past_sessions %}
+        {% if past_sessions or past_event_bookings %}
         <div class="card">
             <h2>📜 Eerdere Sessies</h2>
             <div class="session-list">
@@ -515,6 +532,19 @@
                         {% else %}
                         <span class="badge badge-danger">✗ Afwezig</span>
                         {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% for eb in past_event_bookings %}
+                <div class="session-item" style="border-left-color: #9ca3af;">
+                    <div class="session-header">
+                        <div>
+                            <div class="session-title">{{ eb.event.title }}</div>
+                            <div class="session-datetime" style="color: #6b7280;">
+                                {{ eb.event.event_datetime|date:"l j F Y" }} om {{ eb.event.event_datetime|date:"H:i" }}
+                            </div>
+                        </div>
+                        <span class="badge badge-info">Evenement</span>
                     </div>
                 </div>
                 {% endfor %}

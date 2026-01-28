@@ -298,20 +298,49 @@ class BusinessEvent(models.Model):
     @property
     def is_in_future(self):
         return self.event_datetime > timezone.now()
- 
+
     @property
     def bookings_count(self):
         return self.event_bookings.count()
- 
+
+    def get_equipment_capacity_for_size(self, size_category):
+        """Get capacity for a specific size based on available equipment."""
+        from equipment.models import Equipment
+        return Equipment.objects.filter(status='available', size=size_category).count()
+
+    def get_booked_count_for_size(self, size_category):
+        """Get number of bookings for a specific size category."""
+        return self.event_bookings.filter(size_category=size_category).count()
+
+    def get_available_spots_for_size(self, size_category):
+        """Get available spots for a specific equipment size."""
+        equipment_count = self.get_equipment_capacity_for_size(size_category)
+        booked_count = self.get_booked_count_for_size(size_category)
+        available = max(0, equipment_count - booked_count)
+        if self.max_capacity is not None:
+            total_remaining = max(0, self.max_capacity - self.bookings_count)
+            return min(available, total_remaining)
+        return available
+
     def get_available_spots(self):
-        if self.max_capacity:
-            return max(0, self.max_capacity - self.bookings_count)
-        return None
- 
+        """Get total available spots across all sizes, based on equipment."""
+        total_available = 0
+        for size in ['S', 'M', 'L', 'XL']:
+            equipment_count = self.get_equipment_capacity_for_size(size)
+            booked_count = self.get_booked_count_for_size(size)
+            total_available += max(0, equipment_count - booked_count)
+        if self.max_capacity is not None:
+            total_remaining = max(0, self.max_capacity - self.bookings_count)
+            return min(total_available, total_remaining)
+        return total_available
+
     def can_book(self):
-        return self.is_active and self.is_in_future and (
-            self.max_capacity is None or self.get_available_spots() > 0
-        )
+        """Check if the event can accept any more bookings."""
+        return self.is_active and self.is_in_future and self.get_available_spots() > 0
+
+    def can_book_for_size(self, size_category):
+        """Check if the event can accept a booking for a specific size."""
+        return self.is_active and self.is_in_future and self.get_available_spots_for_size(size_category) > 0
  
  
 class BusinessEventBooking(models.Model):

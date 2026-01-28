@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bevestiging - {{ event.title }} - Jump4Fun</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            color: #333;
+        }
+
+        .success-icon {
+            text-align: center;
+            font-size: 64px;
+            margin: 20px 0 10px;
+        }
+
+        .success-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #065f46;
+            margin-bottom: 5px;
+        }
+
+        .success-subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .confirmation-details {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #6b7280;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .account-notice {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #065f46;
+        }
+
+        .guest-notice {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #1e40af;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <h1>Jump4Fun</h1>
+            </div>
+
+            <div class="success-icon">&#9989;</div>
+            <div class="success-title">Inschrijving bevestigd!</div>
+            <div class="success-subtitle">U bent ingeschreven voor het evenement.</div>
+
+            <div class="confirmation-details">
+                <div class="detail-row">
+                    <span class="detail-label">Evenement</span>
+                    <span class="detail-value">{{ event.title }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Datum</span>
+                    <span class="detail-value">{{ event.event_datetime|date:"l j F Y" }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Tijd</span>
+                    <span class="detail-value">{{ event.event_datetime|date:"H:i" }} ({{ event.duration_minutes }} min)</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Locatie</span>
+                    <span class="detail-value">{{ event.location }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Naam</span>
+                    <span class="detail-value">{{ booking.full_name }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">E-mail</span>
+                    <span class="detail-value">{{ booking.email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Schoenmaat</span>
+                    <span class="detail-value">{{ booking.shoe_size }} ({{ booking.size_category }})</span>
+                </div>
+            </div>
+
+            {% if booking.member %}
+            <div class="account-notice">
+                Uw account is aangemaakt! U kunt nu inloggen met uw e-mailadres om toekomstige sessies te boeken.
+            </div>
+            <a href="{% url 'accounts:client_dashboard' %}" class="btn btn-primary btn-block">
+                Naar mijn dashboard
+            </a>
+            {% else %}
+            <div class="guest-notice">
+                U bent ingeschreven als gast. Bewaar deze pagina als bevestiging.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
