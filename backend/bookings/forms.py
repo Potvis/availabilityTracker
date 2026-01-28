@@ -72,7 +72,7 @@ class BusinessEventBookingForm(forms.ModelForm):
             'placeholder': 'Bijv. 75.5',
             'step': '0.1'
         }),
-        help_text='Uw gewicht in kilogram (nodig voor juiste veersterkte)'
+        help_text='Dit wordt enkel gebruikt om te bepalen welk type veer (standaard of HD) we voor u klaarzetten.'
     )
 
     # Optional account creation

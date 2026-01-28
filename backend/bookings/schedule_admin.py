@@ -298,15 +298,14 @@ class BusinessEventAdmin(admin.ModelAdmin):
 
     def capacity_display(self, obj):
         spots = obj.get_available_spots()
-        if spots is None:
-            return format_html('<span style="color: gray;">Onbeperkt</span>')
+        total = obj.bookings_count + spots
         if spots > 0:
             color = 'green' if spots > 3 else 'orange'
         else:
             color = 'red'
         return format_html(
             '<span style="color: {}; font-weight: bold;">{} vrij van {}</span>',
-            color, spots, obj.max_capacity
+            color, spots, total
         )
     capacity_display.short_description = 'Capaciteit'
 

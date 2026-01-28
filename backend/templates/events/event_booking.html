@@ -278,15 +278,15 @@
                 {% if event.description %}
                 <div class="event-description">{{ event.description }}</div>
                 {% endif %}
-                {% if event.max_capacity %}
-                    {% with spots=event.get_available_spots %}
-                    {% if spots > 3 %}
-                    <span class="spots-badge spots-available">{{ spots }} plaatsen beschikbaar</span>
-                    {% else %}
-                    <span class="spots-badge spots-limited">Nog {{ spots }} {{ spots|pluralize:"plaats,plaatsen" }} beschikbaar</span>
-                    {% endif %}
-                    {% endwith %}
+                {% with spots=event.get_available_spots %}
+                {% if spots > 3 %}
+                <span class="spots-badge spots-available">{{ spots }} plaatsen beschikbaar</span>
+                {% elif spots > 0 %}
+                <span class="spots-badge spots-limited">Nog {{ spots }} {{ spots|pluralize:"plaats,plaatsen" }} beschikbaar</span>
+                {% else %}
+                <span class="spots-badge spots-limited">Geen plaatsen beschikbaar</span>
                 {% endif %}
+                {% endwith %}
             </div>
 
             {% if messages %}
@@ -373,7 +373,7 @@
                         {% if form.weight.errors %}
                         <div class="error-text">{{ form.weight.errors.0 }}</div>
                         {% endif %}
-                        <div class="help-text">Nodig voor juiste veersterkte</div>
+                        <div class="help-text">Dit wordt enkel gebruikt om te bepalen welk type veer (standaard of HD) we voor u klaarzetten.</div>
                     </div>
                 </div>
 
