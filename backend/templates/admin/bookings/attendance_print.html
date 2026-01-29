@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aanwezigheidslijst - 
+    <title>Aanwezigheidslijst -
             {% if session_date %}
                 {{ session_date|date:"l j F Y - H:i" }}
             {% endif %}
@@ -18,38 +18,38 @@
                 padding: 20px;
             }
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: Arial, sans-serif;
             padding: 20px;
             max-width: 210mm;
             margin: 0 auto;
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 30px;
             border-bottom: 3px solid #333;
             padding-bottom: 15px;
         }
-        
+
         .header h1 {
             font-size: 28px;
             margin-bottom: 10px;
             color: #333;
         }
-        
+
         .header .session-info {
             font-size: 16px;
             color: #666;
         }
-        
+
         .stats {
             background: #f5f5f5;
             padding: 15px;
@@ -57,43 +57,58 @@
             border-radius: 5px;
             text-align: center;
         }
-        
+
         .stats strong {
             font-size: 18px;
             color: #333;
         }
-        
+
+        .stats .size-summary {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stats .size-summary span {
+            font-size: 14px;
+            color: #555;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 30px;
         }
-        
+
         thead {
             background-color: #333;
             color: white;
         }
-        
+
         th {
-            padding: 12px;
+            padding: 10px 8px;
             text-align: left;
             font-weight: bold;
             border: 1px solid #333;
+            font-size: 12px;
         }
-        
+
         td {
-            padding: 12px;
+            padding: 10px 8px;
             border: 1px solid #ddd;
+            font-size: 12px;
         }
-        
+
         tbody tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        
+
         tbody tr:hover {
             background-color: #f0f0f0;
         }
-        
+
         .checkbox {
             width: 30px;
             height: 30px;
@@ -101,7 +116,7 @@
             display: inline-block;
             vertical-align: middle;
         }
-        
+
         .size-badge {
             background: #2196F3;
             color: white;
@@ -110,7 +125,23 @@
             font-weight: bold;
             font-size: 11px;
         }
-        
+
+        .spring-badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 11px;
+            color: white;
+        }
+
+        .spring-standard {
+            background: #2196F3;
+        }
+
+        .spring-hd {
+            background: #FF9800;
+        }
+
         .trial-badge {
             background: #FF9800;
             color: white;
@@ -120,11 +151,16 @@
             font-size: 11px;
             margin-left: 5px;
         }
-        
-        .print-button {
+
+        .print-buttons {
             position: fixed;
             top: 20px;
             right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .print-button {
             padding: 15px 30px;
             background: #417690;
             color: white;
@@ -134,11 +170,19 @@
             font-size: 16px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        
+
         .print-button:hover {
             background: #2e5468;
         }
-        
+
+        .print-button.user-list {
+            background: #4CAF50;
+        }
+
+        .print-button.user-list:hover {
+            background: #388E3C;
+        }
+
         .footer {
             text-align: center;
             color: #666;
@@ -147,76 +191,222 @@
             padding-top: 20px;
             border-top: 1px solid #ddd;
         }
+
+        .equipment-summary {
+            margin-top: 20px;
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #FF9800;
+        }
+
+        .equipment-summary h3 {
+            margin-bottom: 10px;
+            color: #e65100;
+            font-size: 16px;
+        }
+
+        .equipment-summary table {
+            margin-bottom: 0;
+        }
+
+        .equipment-summary th {
+            background-color: #e65100;
+            font-size: 11px;
+        }
+
+        .equipment-summary td {
+            font-size: 12px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <button class="print-button no-print" onclick="window.print()">🖨️ Print Lijst</button>
-    
-    <div class="header">
-        <h1>📋 Aanwezigheidslijst</h1>
-        <div class="session-info">
-            <strong>
-            {% if session_date %}
-                {{ session_date|date:"l j F Y - H:i" }}
-            {% endif %}
-            </strong><br>
+    <div class="print-buttons no-print">
+        <button class="print-button" onclick="window.print()">Print Admin Lijst</button>
+        <button class="print-button user-list" onclick="toggleUserView()">Deelnemerslijst</button>
+    </div>
+
+    <div id="admin-view">
+        <div class="header">
+            <h1>Aanwezigheidslijst (Admin)</h1>
+            <div class="session-info">
+                <strong>
+                {% if session_date %}
+                    {{ session_date|date:"l j F Y - H:i" }}
+                {% endif %}
+                </strong><br>
+            </div>
         </div>
-    </div>
-    
-    <div class="stats">
-        <strong>Totaal: {{ total_count }} deelnemers</strong>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 50px;">#</th>
-                <th>Naam</th>
-                <th style="width: 150px;">Sessie Type</th>
-                <th style="width: 150px;">Kaart Type</th>
-                <th style="width: 80px; text-align: center;">Aanwezig</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for attendance in attendances %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>
-                    {% if attendance.member.first_name and attendance.member.last_name %}
-                        <strong>{{ attendance.member.last_name|upper }}, {{ attendance.member.first_name }}</strong>
-                    {% else %}
-                        <strong>{{ attendance.member.email }}</strong>
-                    {% endif %}
-                </td>
-                <td>
-                    <span class="size-badge">{{ attendance.title }}</span>
-                </td>
-                <td>
-                    {% if attendance.session_card %}
-                        {{ attendance.session_card.card_type }}
-                        {% if attendance.session_card.card_category == 'trial' %}
-                            <span class="trial-badge">🎓 OEFENBEURT</span>
+
+        <div class="stats">
+            <strong>Totaal: {{ total_count }} deelnemers</strong>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Naam</th>
+                    <th style="width: 60px;">Schoen</th>
+                    <th style="width: 60px;">Maat</th>
+                    <th style="width: 80px;">Veer</th>
+                    <th style="width: 100px;">Kaart</th>
+                    <th style="width: 60px; text-align: center;">Aanw.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attendance in attendances %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                        {% if attendance.member.first_name and attendance.member.last_name %}
+                            <strong>{{ attendance.member.last_name|upper }}, {{ attendance.member.first_name }}</strong>
+                        {% else %}
+                            <strong>{{ attendance.member.email }}</strong>
                         {% endif %}
-                    {% else %}
-                        <em style="color: #999;">Geen kaart</em>
-                    {% endif %}
-                </td>
-                <td style="text-align: center;">
-                    <span class="checkbox"></span>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" style="text-align: center; color: #999; padding: 30px;">
-                    Geen deelnemers gevonden
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    
+                    </td>
+                    <td>{{ attendance.member.shoe_size|default:"-" }}</td>
+                    <td>
+                        {% if attendance.size_category %}
+                        <span class="size-badge">{{ attendance.size_category }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.equipment_info.spring_type %}
+                        <span class="spring-badge {% if attendance.equipment_info.spring_type == 'hd' %}spring-hd{% else %}spring-standard{% endif %}">
+                            {{ attendance.equipment_info.spring_display }}
+                        </span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.session_card %}
+                            {{ attendance.session_card.card_type }}
+                            {% if attendance.session_card.card_category == 'trial' %}
+                                <span class="trial-badge">OB</span>
+                            {% endif %}
+                        {% else %}
+                            <em style="color: #999;">Geen</em>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="checkbox"></span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999; padding: 30px;">
+                        Geen deelnemers gevonden
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Equipment summary per size/spring -->
+        {% if size_spring_summary %}
+        <div class="equipment-summary">
+            <h3>Benodigde Apparatuur Overzicht</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Maat</th>
+                        <th>Veer Type</th>
+                        <th>Aantal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in size_spring_summary %}
+                    <tr>
+                        <td><span class="size-badge">{{ item.size }}</span></td>
+                        <td>
+                            <span class="spring-badge {% if item.spring == 'hd' %}spring-hd{% else %}spring-standard{% endif %}">
+                                {{ item.spring_display }}
+                            </span>
+                        </td>
+                        <td><strong>{{ item.count }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- User attendance list (hidden by default, toggled via button) -->
+    <div id="user-view" style="display: none;">
+        <div class="header">
+            <h1>Deelnemerslijst</h1>
+            <div class="session-info">
+                <strong>
+                {% if session_date %}
+                    {{ session_date|date:"l j F Y - H:i" }}
+                {% endif %}
+                </strong><br>
+            </div>
+        </div>
+
+        <div class="stats">
+            <strong>Totaal: {{ total_count }} deelnemers</strong>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Naam</th>
+                    <th style="width: 80px; text-align: center;">Beurt</th>
+                    <th style="width: 200px; text-align: center;">Handtekening</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attendance in attendances %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                        {% if attendance.member.first_name and attendance.member.last_name %}
+                            <strong>{{ attendance.member.first_name }} {{ attendance.member.last_name }}</strong>
+                        {% else %}
+                            <strong>{{ attendance.member.email }}</strong>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="checkbox"></span>
+                    </td>
+                    <td style="height: 40px;">
+                        <!-- Signature space -->
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #999; padding: 30px;">
+                        Geen deelnemers gevonden
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
     <div class="footer">
         <p>Gegenereerd op {{ "now"|date:"d-m-Y H:i" }} | Jump4Fun Beheer</p>
     </div>
+
+    <script>
+        let showingUserView = false;
+
+        function toggleUserView() {
+            showingUserView = !showingUserView;
+            document.getElementById('admin-view').style.display = showingUserView ? 'none' : 'block';
+            document.getElementById('user-view').style.display = showingUserView ? 'block' : 'none';
+
+            const btn = document.querySelector('.print-button.user-list');
+            btn.textContent = showingUserView ? 'Admin Lijst' : 'Deelnemerslijst';
+        }
+    </script>
 </body>
 </html>

@@ -339,17 +339,16 @@
                         <span class="info-value">{{ member.email }}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Schoenmaat</span>
-                        <span class="info-value">{{ member.shoe_size|default:"Niet ingevuld" }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Gewicht</span>
-                        <span class="info-value">{{ profile.weight|default:"Niet ingevuld" }} kg</span>
-                    </div>
-                    <div class="info-row">
                         <span class="info-label">Apparatuur</span>
-                        <span class="info-value">{{ equipment_requirements }}</span>
+                        <span class="info-value">{{ equipment_requirements.text }}</span>
                     </div>
+                    <div class="info-row">
+                        <span class="info-label">Verzekering</span>
+                        <span class="info-value">{{ insurance_status }}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; text-align: center;">
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-secondary" style="width: 100%;">Profiel Bewerken</a>
                 </div>
             </div>
             
@@ -379,9 +378,19 @@
                         <p>Geen actieve kaarten</p>
                     </div>
                 {% endif %}
-                <div style="margin-top: 15px; text-align: center;">
+                <div style="margin-top: 15px;">
                     <form method="post" action="{% url 'accounts:request_card' %}">
                         {% csrf_token %}
+                        {% if available_card_types %}
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 5px;">Kies een kaartsoort:</label>
+                            <select name="card_type" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+                                {% for ct in available_card_types %}
+                                <option value="{{ ct.id }}">{{ ct.name }} ({{ ct.sessions }} beurten) - {{ ct.price }} EUR</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
                         <button type="submit" class="btn btn-primary" style="width: 100%;"
                                 onclick="return confirm('Wilt u een sessiekaart aanvragen? De beheerders worden per e-mail op de hoogte gebracht.');">
                             Sessiekaart Aanvragen
@@ -404,7 +413,13 @@
         
         <!-- Available Sessions -->
         <div class="card" style="margin-bottom: 20px;">
-            <h2>📅 Beschikbare Sessies (Maat {{ size_category }})</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">📅 Beschikbare Sessies (Maat {{ size_category }})</h2>
+                <div style="display: flex; gap: 5px;">
+                    <a href="?view=list" class="btn {% if view_mode == 'list' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 12px; font-size: 13px;">Lijst</a>
+                    <a href="?view=calendar" class="btn {% if view_mode == 'calendar' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 12px; font-size: 13px;">Kalender</a>
+                </div>
+            </div>
             {% if upcoming_sessions %}
             <div class="session-list">
                 {% for item in upcoming_sessions %}
@@ -424,7 +439,9 @@
                             <span>👥 {{ item.available_capacity }} van {{ item.schedule.max_capacity }} plaatsen vrij</span>
                         </div>
                     </div>
-                    {% if item.can_book %}
+                    {% if item.already_booked %}
+                    <button class="btn btn-secondary" disabled style="opacity: 0.6; cursor: not-allowed;">Al ingeschreven</button>
+                    {% elif item.can_book %}
                     <form method="post" action="{% url 'accounts:book_session' item.schedule.id %}">
                         {% csrf_token %}
                         <input type="hidden" name="session_datetime" value="{{ item.datetime|date:'c' }}">

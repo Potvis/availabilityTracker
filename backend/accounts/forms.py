@@ -30,7 +30,17 @@ class UserRegistrationForm(UserCreationForm):
             'placeholder': 'Achternaam'
         })
     )
-    
+    date_of_birth = forms.DateField(
+        label='Geboortedatum',
+        required=True,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date',
+            'placeholder': 'dd-mm-jjjj'
+        }),
+        help_text='Vereist voor verzekering'
+    )
+
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name', 'password1', 'password2')
@@ -52,10 +62,14 @@ class UserRegistrationForm(UserCreationForm):
         user.email = self.cleaned_data['email']
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
-        
+
         if commit:
             user.save()
-        
+            # Save date_of_birth to associated member
+            if hasattr(user, 'profile') and user.profile.member:
+                user.profile.member.date_of_birth = self.cleaned_data['date_of_birth']
+                user.profile.member.save()
+
         return user
 
 
@@ -80,7 +94,7 @@ class UserLoginForm(AuthenticationForm):
 
 class ProfileCompletionForm(forms.ModelForm):
     """Form for completing user profile with required fields"""
-    
+
     # Member fields
     first_name = forms.CharField(
         label='Voornaam',
@@ -99,6 +113,15 @@ class ProfileCompletionForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'Achternaam'
         })
+    )
+    date_of_birth = forms.DateField(
+        label='Geboortedatum',
+        required=True,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date',
+        }),
+        help_text='Vereist voor verzekering'
     )
     phone = forms.CharField(
         label='Telefoonnummer',
@@ -161,11 +184,12 @@ class ProfileCompletionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.member = kwargs.pop('member', None)
         super().__init__(*args, **kwargs)
-        
+
         # Pre-populate member fields if available
         if self.member:
             self.fields['first_name'].initial = self.member.first_name
             self.fields['last_name'].initial = self.member.last_name
+            self.fields['date_of_birth'].initial = self.member.date_of_birth
             self.fields['phone'].initial = self.member.phone
             self.fields['shoe_size'].initial = self.member.shoe_size
     
@@ -183,21 +207,22 @@ class ProfileCompletionForm(forms.ModelForm):
     def save(self, commit=True):
         # Save UserProfile
         profile = super().save(commit=False)
-        
+
         # Update associated Member
         if self.member:
             self.member.first_name = self.cleaned_data['first_name']
             self.member.last_name = self.cleaned_data['last_name']
+            self.member.date_of_birth = self.cleaned_data['date_of_birth']
             self.member.phone = self.cleaned_data['phone']
             self.member.shoe_size = self.cleaned_data['shoe_size']
-            
+
             if commit:
                 self.member.save()
-        
+
         if commit:
             profile.save()
             profile.check_profile_complete()
-        
+
         return profile
 
 

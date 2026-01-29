@@ -157,36 +157,65 @@ def assign_equipment(member, session_datetime=None):
 def get_equipment_requirements_display(member):
     """
     Get a human-readable description of member's equipment requirements.
-    
+
     Args:
         member: Member object
-    
+
     Returns:
-        str: Description of requirements
+        dict with 'text' description and detailed components
     """
     if not member.shoe_size:
-        return "Schoenmaat onbekend"
-    
+        return {
+            'text': "Schoenmaat onbekend",
+            'size_category': None,
+            'spring_type': None,
+            'shoe_size': None,
+        }
+
     size_category = get_size_category_from_shoe_size(member.shoe_size)
-    
+
     weight = None
     if hasattr(member, 'user_profile') and member.user_profile:
         weight = member.user_profile.weight
-    
+
     spring_type = get_spring_type_from_weight(weight)
-    
+
     spring_desc = "HD veer" if spring_type == 'hd' else "Standaard veer"
-    
+
     size_ranges = {
         'S': '32-36',
         'M': '37-41',
         'L': '42-46',
         'XL': '47+'
     }
-    
+
     size_range = size_ranges.get(size_category, '?')
-    
-    return f"Maat {size_category} ({size_range}) - {spring_desc}"
+
+    # Check for assigned equipment with specific spring/shell type details
+    assigned = find_available_equipment(member.shoe_size, weight)
+    spring_detail = None
+    shell_detail = None
+    if assigned and assigned.exists():
+        first = assigned.first()
+        if first.spring_type_detail:
+            spring_detail = first.spring_type_detail.name
+        if first.shell_type:
+            shell_detail = first.shell_type.name
+
+    text = f"Maat {size_category} ({size_range}) - {spring_desc}"
+    if spring_detail:
+        text += f" ({spring_detail})"
+    if shell_detail:
+        text += f" - Schelp: {shell_detail}"
+
+    return {
+        'text': text,
+        'size_category': size_category,
+        'spring_type': spring_type,
+        'spring_detail': spring_detail,
+        'shell_detail': shell_detail,
+        'shoe_size': member.shoe_size,
+    }
 
 
 def check_equipment_availability(size_category, spring_type, count=1):

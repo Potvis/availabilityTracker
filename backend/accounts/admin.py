@@ -77,16 +77,29 @@ class UserProfileAdmin(admin.ModelAdmin):
             )
     profile_complete_status.short_description = 'Profiel Compleetheid'
     
-    actions = ['send_profile_completion_reminder']
-    
+    actions = ['send_profile_completion_reminder', 'trigger_password_reset']
+
     def send_profile_completion_reminder(self, request, queryset):
         """Send email reminder to complete profile"""
         incomplete_profiles = queryset.filter(profile_complete=False)
         count = incomplete_profiles.count()
-        
+
         # TODO: Implement email sending
         self.message_user(
-            request, 
+            request,
             f'{count} gebruiker(s) geselecteerd voor herinnering (email functionaliteit nog te implementeren).'
         )
     send_profile_completion_reminder.short_description = 'Verstuur profiel voltooiing herinnering'
+
+    def trigger_password_reset(self, request, queryset):
+        """Admin triggers password reset for selected users"""
+        from .views import _send_password_reset_email
+        count = 0
+        for profile in queryset:
+            _send_password_reset_email(profile.user)
+            count += 1
+        self.message_user(
+            request,
+            f'Wachtwoord reset e-mail verstuurd naar {count} gebruiker(s).'
+        )
+    trigger_password_reset.short_description = 'Wachtwoord reset triggeren'

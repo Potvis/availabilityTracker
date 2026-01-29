@@ -321,15 +321,28 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="id_phone">Telefoonnummer</label>
-                            <input type="tel" name="phone" id="id_phone"
-                                   class="form-control {% if form.phone.errors %}error{% endif %}"
-                                   value="{{ form.phone.value|default:'' }}"
-                                   placeholder="+32 123 45 67 89" required>
-                            {% if form.phone.errors %}
-                            <div class="error-text">{{ form.phone.errors.0 }}</div>
-                            {% endif %}
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="id_phone">Telefoonnummer</label>
+                                <input type="tel" name="phone" id="id_phone"
+                                       class="form-control {% if form.phone.errors %}error{% endif %}"
+                                       value="{{ form.phone.value|default:'' }}"
+                                       placeholder="+32 123 45 67 89" required>
+                                {% if form.phone.errors %}
+                                <div class="error-text">{{ form.phone.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="id_date_of_birth">Geboortedatum</label>
+                                <input type="date" name="date_of_birth" id="id_date_of_birth"
+                                       class="form-control {% if form.date_of_birth.errors %}error{% endif %}"
+                                       value="{{ form.date_of_birth.value|default:'' }}" required>
+                                {% if form.date_of_birth.errors %}
+                                <div class="error-text">{{ form.date_of_birth.errors.0 }}</div>
+                                {% endif %}
+                                <div class="help-text">Vereist voor verzekering</div>
+                            </div>
                         </div>
 
                         <div class="row">
@@ -408,7 +421,7 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Apparatuur</span>
-                        <span class="info-value">{{ equipment_requirements }}</span>
+                        <span class="info-value">{{ equipment_requirements.text }}</span>
                     </div>
                 </div>
 

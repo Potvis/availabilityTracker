@@ -12,6 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 from bookings.schedule_models import SessionSchedule, BusinessEventBooking
 from bookings.models import SessionAttendance
+from cards.models import CardType
 
 def register(request):
     """User registration view"""
@@ -224,10 +225,56 @@ def profile_quick_update(request):
 
 
 def password_reset_request(request):
-    """Password reset request view"""
-    # TODO: Implement password reset via email
-    messages.info(request, 'Wachtwoord reset functie komt binnenkort beschikbaar.')
-    return redirect('accounts:login')
+    """Password reset request view - sends reset email"""
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        if email:
+            try:
+                user = User.objects.get(email=email)
+                _send_password_reset_email(user, request)
+                messages.success(
+                    request,
+                    'Als dit e-mailadres bij ons bekend is, ontvangt u een e-mail met instructies.'
+                )
+            except User.DoesNotExist:
+                # Don't reveal whether email exists
+                messages.success(
+                    request,
+                    'Als dit e-mailadres bij ons bekend is, ontvangt u een e-mail met instructies.'
+                )
+        return redirect('accounts:login')
+
+    return render(request, 'accounts/password_reset.html', {'title': 'Wachtwoord Resetten'})
+
+
+def _send_password_reset_email(user, request=None):
+    """Generate a temporary password and send it via email."""
+    import secrets
+    new_password = secrets.token_urlsafe(10)
+    user.set_password(new_password)
+    user.save()
+
+    subject = 'Wachtwoord Reset - Jump4Fun'
+    message = (
+        f'Beste {user.first_name or user.email},\n\n'
+        f'Uw wachtwoord is gereset. Hieronder vindt u uw tijdelijk wachtwoord:\n\n'
+        f'  Tijdelijk wachtwoord: {new_password}\n\n'
+        f'Log in met dit wachtwoord en wijzig het daarna via uw profiel.\n\n'
+        f'Als u deze reset niet heeft aangevraagd, neem dan contact op met de beheerder.\n\n'
+        f'Met vriendelijke groeten,\n'
+        f'Jump4Fun'
+    )
+
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+    except Exception:
+        pass  # Fail silently to not reveal email info
 
 @login_required
 def client_dashboard(request):
@@ -258,6 +305,14 @@ def client_dashboard(request):
         if s.has_capacity_for_size(size_category)
     ]
 
+    # Build set of already-booked session datetimes for this member
+    booked_datetimes = set(
+        SessionAttendance.objects.filter(
+            member=member,
+            session_date__gte=timezone.now()
+        ).values_list('session_date', flat=True)
+    )
+
     # Get upcoming sessions (next 2 weeks)
     upcoming_sessions = []
     now = timezone.now()
@@ -271,11 +326,13 @@ def client_dashboard(request):
                 available_capacity = schedule.get_available_capacity_for_size(
                     next_occurrence, size_category
                 )
+                already_booked = next_occurrence in booked_datetimes
                 upcoming_sessions.append({
                     'schedule': schedule,
                     'datetime': next_occurrence,
                     'available_capacity': available_capacity,
-                    'can_book': available_capacity > 0
+                    'can_book': available_capacity > 0 and not already_booked,
+                    'already_booked': already_booked,
                 })
             # Move to next week
             current_date = current_date + timedelta(days=7)
@@ -312,6 +369,9 @@ def client_dashboard(request):
         event__event_datetime__lt=now
     ).select_related('event').order_by('-event__event_datetime')[:10]
 
+    # Get available card types for card request
+    available_card_types = CardType.objects.filter(is_active=True)
+
     context = {
         'profile': profile,
         'member': member,
@@ -323,6 +383,9 @@ def client_dashboard(request):
         'size_category': size_category,
         'upcoming_event_bookings': upcoming_event_bookings,
         'past_event_bookings': past_event_bookings,
+        'available_card_types': available_card_types,
+        'insurance_status': member.get_insurance_status_display(),
+        'view_mode': request.GET.get('view', 'list'),
     }
 
     return render(request, 'client/dashboard.html', context)
@@ -467,6 +530,16 @@ def request_session_card(request):
     profile = request.user.profile
     member = profile.member
 
+    # Get selected card type
+    card_type_id = request.POST.get('card_type')
+    card_type_info = 'Niet gespecificeerd'
+    if card_type_id:
+        try:
+            ct = CardType.objects.get(id=card_type_id, is_active=True)
+            card_type_info = f'{ct.name} ({ct.sessions} beurten - {ct.price} EUR)'
+        except CardType.DoesNotExist:
+            pass
+
     # Get all admin email addresses
     admin_emails = list(
         User.objects.filter(is_staff=True)
@@ -479,6 +552,7 @@ def request_session_card(request):
         message = (
             f'Beste beheerder,\n\n'
             f'{member.full_name} ({member.email}) heeft een sessiekaart aangevraagd.\n\n'
+            f'Gewenste kaartsoort: {card_type_info}\n\n'
             f'Gegevens:\n'
             f'  Naam: {member.full_name}\n'
             f'  E-mail: {member.email}\n'

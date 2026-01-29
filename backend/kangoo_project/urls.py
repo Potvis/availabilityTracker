@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
-from bookings.event_views import event_booking_page, event_confirmation
+from bookings.event_views import event_booking_page, event_confirmation, company_events_page
 
 
 def root_redirect(request):
@@ -21,6 +21,9 @@ urlpatterns = [
     # Business events (public, no login required)
     path('evenement/<uuid:token>/', event_booking_page, name='event_booking'),
     path('evenement/<uuid:token>/bevestiging/<int:booking_id>/', event_confirmation, name='event_confirmation'),
+
+    # Company events (public, no login required) - one link per company, multiple events
+    path('bedrijf/<uuid:token>/', company_events_page, name='company_events'),
 
     path('', root_redirect, name='root'),
 ]
