@@ -3,6 +3,39 @@ from django.core.validators import MinValueValidator
 from django.utils import timezone
 from members.models import Member
 
+
+class CardType(models.Model):
+    """Admin-configurable card types with pricing."""
+    name = models.CharField(max_length=100, verbose_name='Naam', help_text='Bijv. 1 Beurt, 5 Beurten, 10 Beurten')
+    sessions = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name='Aantal Beurten',
+        help_text='Hoeveel beurten zitten er in deze kaart'
+    )
+    price = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        verbose_name='Prijs',
+        help_text='Prijs in euro'
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=[('regular', 'Normale Kaart'), ('trial', 'Oefenbeurt')],
+        default='regular',
+        verbose_name='Categorie'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+    sort_order = models.IntegerField(default=0, verbose_name='Sorteervolgorde')
+
+    class Meta:
+        ordering = ['sort_order', 'sessions']
+        verbose_name = 'Kaartsoort'
+        verbose_name_plural = 'Kaartsoorten'
+
+    def __str__(self):
+        return f"{self.name} ({self.sessions} beurten - {self.price} EUR)"
+
+
 class SessionCard(models.Model):
     STATUS_CHOICES = [
         ('active', 'Actief'),
@@ -12,6 +45,14 @@ class SessionCard(models.Model):
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='session_cards')
     card_type = models.CharField(max_length=50, default='10-Sessie Kaart')
+    card_type_ref = models.ForeignKey(
+        CardType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Kaartsoort',
+        help_text='Verwijzing naar de kaartsoort (optioneel)'
+    )
     card_category = models.CharField(
         max_length=20, 
         choices=[('regular', 'Normale Kaart'), ('trial', 'Oefenbeurt')],

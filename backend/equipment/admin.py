@@ -1,7 +1,22 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count
-from .models import Equipment, MaintenanceLog
+from .models import Equipment, MaintenanceLog, SpringType, ShellType
+
+
+@admin.register(SpringType)
+class SpringTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
+
+@admin.register(ShellType)
+class ShellTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
 
 class MaintenanceLogInline(admin.TabularInline):
     model = MaintenanceLog
@@ -10,15 +25,22 @@ class MaintenanceLogInline(admin.TabularInline):
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
-    list_display = ['equipment_id', 'name', 'size', 'spring_type_badge', 'status_badge', 'last_maintenance', 'next_maintenance']
-    list_filter = ['status', 'size', 'spring_type', 'last_maintenance']
+    list_display = [
+        'equipment_id', 'name', 'size', 'spring_type_badge',
+        'shell_type_display', 'status_badge', 'last_maintenance', 'next_maintenance'
+    ]
+    list_filter = ['status', 'size', 'spring_type', 'shell_type', 'spring_type_detail', 'last_maintenance']
     search_fields = ['equipment_id', 'name']
     readonly_fields = ['created_at', 'updated_at']
     inlines = [MaintenanceLogInline]
-    
+
     fieldsets = (
         ('Basis Informatie', {
-            'fields': ('equipment_id', 'name', 'size', 'spring_type', 'status')
+            'fields': ('equipment_id', 'name', 'size', 'status')
+        }),
+        ('Schoen Variaties', {
+            'fields': ('spring_type', 'spring_type_detail', 'shell_type'),
+            'description': 'Elke schoen heeft 3 variaties: schoenmaat, soort veer en soort schelp.'
         }),
         ('Onderhoud', {
             'fields': ('purchase_date', 'last_maintenance', 'next_maintenance')
@@ -29,15 +51,28 @@ class EquipmentAdmin(admin.ModelAdmin):
         }),
     )
 
+    def shell_type_display(self, obj):
+        if obj.shell_type:
+            return format_html(
+                '<span style="background-color: #9C27B0; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold;">{}</span>',
+                obj.shell_type.name
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    shell_type_display.short_description = 'Schelp'
+
     def spring_type_badge(self, obj):
         colors = {
             'standard': '#2196F3',
             'hd': '#FF9800'
         }
         color = colors.get(obj.spring_type, 'gray')
+        label = obj.get_spring_type_display()
+        if obj.spring_type_detail:
+            label = obj.spring_type_detail.name
         return format_html(
             '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;">{}</span>',
-            color, obj.get_spring_type_display()
+            color, label
         )
     spring_type_badge.short_description = 'Veer Type'
 
@@ -95,7 +130,7 @@ class MaintenanceLogAdmin(admin.ModelAdmin):
     list_filter = ['date', 'equipment__status']
     search_fields = ['equipment__equipment_id', 'equipment__name', 'performed_by', 'description']
     date_hierarchy = 'date'
-    
+
     def description_short(self, obj):
         return obj.description[:50] + '...' if len(obj.description) > 50 else obj.description
     description_short.short_description = 'Beschrijving'
