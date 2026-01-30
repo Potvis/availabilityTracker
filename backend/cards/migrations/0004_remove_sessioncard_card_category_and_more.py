@@ -6,9 +6,41 @@ Strategy:
 1. Remove card_category CharField
 2. Remove card_type CharField (the old free-text field)
 3. Rename card_type_ref FK -> card_type
+4. Data migration: fill NULLs with a default CardType
+5. AlterField to make FK required (NOT NULL)
 """
 import django.db.models.deletion
 from django.db import migrations, models
+
+
+def fill_null_card_types(apps, schema_editor):
+    """Ensure every SessionCard has a card_type set.
+
+    For rows where the old card_type_ref was NULL, create or look up a
+    matching CardType based on the old total_sessions value.
+    """
+    CardType = apps.get_model('cards', 'CardType')
+    SessionCard = apps.get_model('cards', 'SessionCard')
+
+    null_cards = SessionCard.objects.filter(card_type__isnull=True)
+    if not null_cards.exists():
+        return
+
+    # Build/reuse CardType records based on total_sessions
+    for card in null_cards:
+        sessions = card.total_sessions or 10
+        ct, _ = CardType.objects.get_or_create(
+            sessions=sessions,
+            category='regular',
+            defaults={
+                'name': f'{sessions}-Sessie Kaart',
+                'price': 0,
+                'is_active': True,
+                'sort_order': sessions,
+            },
+        )
+        card.card_type_id = ct.pk
+        card.save(update_fields=['card_type_id'])
 
 
 class Migration(migrations.Migration):
@@ -34,7 +66,12 @@ class Migration(migrations.Migration):
             old_name="card_type_ref",
             new_name="card_type",
         ),
-        # Step 4: Make the FK required (not null) and update metadata
+        # Step 4: Fill NULL card_type values
+        migrations.RunPython(
+            fill_null_card_types,
+            migrations.RunPython.noop,
+        ),
+        # Step 5: Make the FK required (not null) and update metadata
         migrations.AlterField(
             model_name="sessioncard",
             name="card_type",
