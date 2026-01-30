@@ -285,7 +285,7 @@ class CompanyAdmin(admin.ModelAdmin):
 
     def shareable_link_display(self, obj):
         return format_html(
-            '<code style="background: #f3f4f6; padding: 2px 8px; border-radius: 4px; '
+            '<code style="background: #000; padding: 2px 8px; border-radius: 4px; '
             'font-size: 11px;">/bedrijf/{}/</code>',
             obj.token
         )
@@ -294,7 +294,7 @@ class CompanyAdmin(admin.ModelAdmin):
     def shareable_link_readonly(self, obj):
         if obj.pk:
             return format_html(
-                '<code style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; '
+                '<code style="background: #000; padding: 8px 12px; border-radius: 6px; '
                 'font-size: 14px; display: inline-block;">'
                 '/bedrijf/{}/</code>'
                 '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
@@ -397,7 +397,7 @@ class BusinessEventAdmin(admin.ModelAdmin):
 
     def shareable_link_display(self, obj):
         return format_html(
-            '<code style="background: #f3f4f6; padding: 2px 8px; border-radius: 4px; '
+            '<code style="background: #000; padding: 2px 8px; border-radius: 4px; '
             'font-size: 11px;">/evenement/{}/</code>',
             obj.token
         )
@@ -406,7 +406,7 @@ class BusinessEventAdmin(admin.ModelAdmin):
     def shareable_link_readonly(self, obj):
         if obj.pk:
             return format_html(
-                '<code style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; '
+                '<code style="background: #000; padding: 8px 12px; border-radius: 6px; '
                 'font-size: 14px; display: inline-block;">'
                 '/evenement/{}/</code>'
                 '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'

@@ -96,7 +96,7 @@ class SessionCardAdmin(admin.ModelAdmin):
         color = 'red' if percentage >= 90 else 'orange' if percentage >= 70 else 'green'
 
         return format_html(
-            '<div style="width:100px; background-color: #f0f0f0; border-radius: 3px;">'
+            '<div style="width:100px; background-color: #000; border-radius: 3px;">'
             '<div style="width:{}%; background-color: {}; height: 20px; border-radius: 3px; text-align: center; color: white; line-height: 20px; font-weight: bold;">'
             '{}/{}'
             '</div></div>',
