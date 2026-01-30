@@ -359,7 +359,7 @@
                     {% for card in active_cards %}
                     <div style="margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong>{{ card.card_type }}</strong>
+                            <strong>{{ card.card_type.name }}</strong>
                             {% if card.is_trial %}
                             <span class="badge badge-warning">🎓 Oefenbeurt</span>
                             {% else %}
@@ -490,7 +490,7 @@
                     <div class="session-details">
                         <div>📍 {{ booking.location }}</div>
                         {% if booking.session_card %}
-                        <div>🎫 {{ booking.session_card.card_type }}
+                        <div>🎫 {{ booking.session_card.card_type.name }}
                             {% if booking.session_card.is_trial %}(🎓 Oefenbeurt){% endif %}
                         </div>
                         {% endif %}

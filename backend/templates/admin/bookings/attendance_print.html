@@ -285,8 +285,8 @@
                     </td>
                     <td>
                         {% if attendance.session_card %}
-                            {{ attendance.session_card.card_type }}
-                            {% if attendance.session_card.card_category == 'trial' %}
+                            {{ attendance.session_card.card_type.name }}
+                            {% if attendance.session_card.is_trial %}
                                 <span class="trial-badge">OB</span>
                             {% endif %}
                         {% else %}

@@ -431,7 +431,7 @@
                         {% for card in active_cards %}
                         <div class="card-item">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                <strong>{{ card.card_type }}</strong>
+                                <strong>{{ card.card_type.name }}</strong>
                                 {% if card.is_trial %}
                                 <span class="badge badge-warning">Oefenbeurt</span>
                                 {% else %}

@@ -192,7 +192,7 @@
                         <td>{{ session.session_date|date:"d-m-Y H:i" }}</td>
                         <td>
                             {% if session.session_card %}
-                                ✓ {{ session.session_card.card_type }}
+                                ✓ {{ session.session_card.card_type.name }}
                             {% else %}
                                 -
                             {% endif %}
