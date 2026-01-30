@@ -76,6 +76,25 @@
             color: #555;
         }
 
+        .terms-box {
+            background: #fff3cd;
+            border: 2px solid #ff9800;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .terms-box h3 {
+            color: #ff6b00;
+            margin-bottom: 10px;
+        }
+
+        .terms-box p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -107,14 +126,6 @@
 
         tbody tr:hover {
             background-color: #f0f0f0;
-        }
-
-        .checkbox {
-            width: 30px;
-            height: 30px;
-            border: 2px solid #333;
-            display: inline-block;
-            vertical-align: middle;
         }
 
         .size-badge {
@@ -150,6 +161,29 @@
             font-weight: bold;
             font-size: 11px;
             margin-left: 5px;
+        }
+
+        .checkbox {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #333;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .sessions-remaining {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .sessions-low {
+            color: #FF9800;
+            font-weight: bold;
+        }
+
+        .sessions-none {
+            color: #f44336;
+            font-weight: bold;
         }
 
         .print-buttons {
@@ -223,10 +257,11 @@
 </head>
 <body>
     <div class="print-buttons no-print">
-        <button class="print-button" onclick="window.print()">Print Admin Lijst</button>
-        <button class="print-button user-list" onclick="toggleUserView()">Deelnemerslijst</button>
+        <button class="print-button" onclick="showAdminView()">Print Admin Lijst</button>
+        <button class="print-button user-list" onclick="showUserView()">Deelnemerslijst</button>
     </div>
 
+    <!-- ==================== ADMIN VIEW ==================== -->
     <div id="admin-view">
         <div class="header">
             <h1>Aanwezigheidslijst (Admin)</h1>
@@ -337,10 +372,10 @@
         {% endif %}
     </div>
 
-    <!-- User attendance list (hidden by default, toggled via button) -->
+    <!-- ==================== MEMBER / USER VIEW ==================== -->
     <div id="user-view" style="display: none;">
         <div class="header">
-            <h1>Deelnemerslijst</h1>
+            <h1>Aanwezigheidslijst</h1>
             <div class="session-info">
                 <strong>
                 {% if session_date %}
@@ -354,13 +389,24 @@
             <strong>Totaal: {{ total_count }} deelnemers</strong>
         </div>
 
+        <div class="terms-box">
+            <h3>BELANGRIJK - Lees voor ondertekening</h3>
+            <p>
+                <strong>Door het ondertekenen van deze lijst bevestig je:</strong><br>
+                &bull; Je bent aanwezig bij deze Jump4Fun sessie<br>
+                &bull; Er wordt automatisch <strong>1 sessie afgetrokken van je sessiekaart</strong><br>
+            </p>
+        </div>
+
         <table>
             <thead>
                 <tr>
-                    <th style="width: 40px;">#</th>
+                    <th style="width: 50px;">#</th>
                     <th>Naam</th>
-                    <th style="width: 80px; text-align: center;">Beurt</th>
-                    <th style="width: 200px; text-align: center;">Handtekening</th>
+                    <th style="width: 150px;">Sessie Type</th>
+                    <th style="width: 180px;">Kaart Type</th>
+                    <th style="width: 100px; text-align: center;">Sessies Over</th>
+                    <th style="width: 80px; text-align: center;">Handtekening</th>
                 </tr>
             </thead>
             <tbody>
@@ -369,21 +415,46 @@
                     <td>{{ forloop.counter }}</td>
                     <td>
                         {% if attendance.member.first_name and attendance.member.last_name %}
-                            <strong>{{ attendance.member.first_name }} {{ attendance.member.last_name }}</strong>
+                            <strong>{{ attendance.member.first_name }}, {{ attendance.member.last_name|upper }}</strong>
                         {% else %}
                             <strong>{{ attendance.member.email }}</strong>
                         {% endif %}
                     </td>
-                    <td style="text-align: center;">
-                        <span class="checkbox"></span>
+                    <td>
+                        <span class="size-badge">{{ attendance.title }}</span>
                     </td>
-                    <td style="height: 40px;">
-                        <!-- Signature space -->
+                    <td>
+                        {% if attendance.session_card %}
+                            {{ attendance.session_card.card_type.name }}
+                            {% if attendance.session_card.is_trial %}
+                                <span class="trial-badge">OEFENBEURT</span>
+                            {% endif %}
+                        {% else %}
+                            <em style="color: #999;">Geen kaart</em>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if attendance.session_card %}
+                            {% with remaining=attendance.session_card.sessions_remaining %}
+                                {% if remaining > 3 %}
+                                    <span class="sessions-remaining">{{ remaining }} sessies</span>
+                                {% elif remaining > 0 %}
+                                    <span class="sessions-low">{{ remaining }} sessies</span>
+                                {% else %}
+                                    <span class="sessions-none">0 sessies</span>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <em style="color: #999;">-</em>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center; background-color: #f8f9fa;">
+                        <!-- Empty cell for signature -->
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" style="text-align: center; color: #999; padding: 30px;">
+                    <td colspan="6" style="text-align: center; color: #999; padding: 30px;">
                         Geen deelnemers gevonden
                     </td>
                 </tr>
@@ -394,18 +465,24 @@
 
     <div class="footer">
         <p>Gegenereerd op {{ "now"|date:"d-m-Y H:i" }} | Jump4Fun Beheer</p>
+        <p id="footer-note" style="display: none; margin-top: 10px; font-style: italic;">
+            Na het ondertekenen moet de administrator handmatig de sessies afrekenen in het systeem.
+        </p>
     </div>
 
     <script>
-        let showingUserView = false;
+        function showAdminView() {
+            document.getElementById('admin-view').style.display = 'block';
+            document.getElementById('user-view').style.display = 'none';
+            document.getElementById('footer-note').style.display = 'none';
+            window.print();
+        }
 
-        function toggleUserView() {
-            showingUserView = !showingUserView;
-            document.getElementById('admin-view').style.display = showingUserView ? 'none' : 'block';
-            document.getElementById('user-view').style.display = showingUserView ? 'block' : 'none';
-
-            const btn = document.querySelector('.print-button.user-list');
-            btn.textContent = showingUserView ? 'Admin Lijst' : 'Deelnemerslijst';
+        function showUserView() {
+            document.getElementById('admin-view').style.display = 'none';
+            document.getElementById('user-view').style.display = 'block';
+            document.getElementById('footer-note').style.display = 'block';
+            window.print();
         }
     </script>
 </body>
