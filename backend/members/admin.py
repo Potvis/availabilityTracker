@@ -64,7 +64,7 @@ class MemberAdmin(admin.ModelAdmin):
 
         html = "<ul>"
         for card in cards:
-            html += f"<li>{card.card_type} - {card.sessions_remaining} sessies over</li>"
+            html += f"<li>{card.card_type.name} - {card.sessions_remaining} sessies over</li>"
         html += "</ul>"
         return format_html(html)
     cards_info.short_description = 'Kaarten Details'

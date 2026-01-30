@@ -103,13 +103,13 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         if not obj or not obj.session_card:
             return format_html('<span style="color: gray;">Geen kaart</span>')
         
-        is_trial = obj.session_card.card_category == 'trial'
+        is_trial = obj.session_card.is_trial
         trial_icon = '🎓' if is_trial else ''
         color = 'green' if obj.card_session_used else 'orange'
         symbol = '✓' if obj.card_session_used else '○'
         return format_html(
             '<span style="color: {};">{} {}{}</span>',
-            color, symbol, trial_icon, obj.session_card.card_type
+            color, symbol, trial_icon, obj.session_card.card_type.name
         )
     card_used.short_description = 'Kaart'
     

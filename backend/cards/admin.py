@@ -53,8 +53,8 @@ class SessionAttendanceInline(admin.TabularInline):
 
 @admin.register(SessionCard)
 class SessionCardAdmin(admin.ModelAdmin):
-    list_display = ['member', 'card_category_badge', 'card_type', 'sessions_progress', 'status_badge', 'purchased_date', 'expiry_date']
-    list_filter = ['status', 'card_category', 'card_type', 'purchased_date']
+    list_display = ['member', 'category_badge', 'card_type', 'sessions_progress', 'status_badge', 'purchased_date', 'expiry_date']
+    list_filter = ['status', 'card_type__category', 'card_type', 'purchased_date']
     search_fields = ['member__email', 'member__first_name', 'member__last_name']
     readonly_fields = ['sessions_remaining', 'created_at', 'updated_at', 'usage_summary']
     date_hierarchy = 'purchased_date'
@@ -65,7 +65,7 @@ class SessionCardAdmin(admin.ModelAdmin):
             'fields': ('member',)
         }),
         ('Kaart Details', {
-            'fields': ('card_type_ref', 'card_category', 'card_type', 'total_sessions', 'sessions_used', 'sessions_remaining', 'status')
+            'fields': ('card_type', 'total_sessions', 'sessions_used', 'sessions_remaining', 'status')
         }),
         ('Data & Geldigheid', {
             'fields': ('purchased_date', 'expiry_date', 'price_paid')
@@ -79,16 +79,16 @@ class SessionCardAdmin(admin.ModelAdmin):
         }),
     )
 
-    def card_category_badge(self, obj):
+    def category_badge(self, obj):
         """Show if card is a trial"""
-        if obj.card_category == 'trial':
+        if obj.card_type.category == 'trial':
             return format_html(
                 '<span style="background-color: #FF9800; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;">Oefenbeurt</span>'
             )
         return format_html(
             '<span style="background-color: #2196F3; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;">Normale Kaart</span>'
         )
-    card_category_badge.short_description = 'Type'
+    category_badge.short_description = 'Type'
 
     def sessions_progress(self, obj):
         """Visual progress bar for session usage"""
@@ -139,7 +139,7 @@ class SessionCardAdmin(admin.ModelAdmin):
         return format_html(html)
     usage_summary.short_description = 'Gebruik Samenvatting'
 
-    actions = ['mark_as_expired', 'mark_as_active', 'convert_to_trial', 'convert_to_regular']
+    actions = ['mark_as_expired', 'mark_as_active']
 
     def mark_as_expired(self, request, queryset):
         """Manually mark cards as expired"""
@@ -152,15 +152,3 @@ class SessionCardAdmin(admin.ModelAdmin):
         updated = queryset.filter(sessions_used__lt=models.F('total_sessions')).update(status='active')
         self.message_user(request, f'{updated} kaart(en) gemarkeerd als actief.')
     mark_as_active.short_description = 'Markeer als actief'
-
-    def convert_to_trial(self, request, queryset):
-        """Convert cards to trial cards"""
-        updated = queryset.update(card_category='trial')
-        self.message_user(request, f'{updated} kaart(en) omgezet naar oefenbeurt.')
-    convert_to_trial.short_description = 'Omzetten naar Oefenbeurt'
-
-    def convert_to_regular(self, request, queryset):
-        """Convert cards to regular cards"""
-        updated = queryset.update(card_category='regular')
-        self.message_user(request, f'{updated} kaart(en) omgezet naar normale kaart.')
-    convert_to_regular.short_description = 'Omzetten naar Normale Kaart'

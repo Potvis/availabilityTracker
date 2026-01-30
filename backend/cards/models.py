@@ -44,20 +44,11 @@ class SessionCard(models.Model):
     ]
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='session_cards')
-    card_type = models.CharField(max_length=50, default='10-Sessie Kaart')
-    card_type_ref = models.ForeignKey(
+    card_type = models.ForeignKey(
         CardType,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         verbose_name='Kaartsoort',
-        help_text='Verwijzing naar de kaartsoort (optioneel)'
-    )
-    card_category = models.CharField(
-        max_length=20, 
-        choices=[('regular', 'Normale Kaart'), ('trial', 'Oefenbeurt')],
-        default='regular',
-        verbose_name='Kaart Categorie'
+        related_name='session_cards',
     )
     total_sessions = models.IntegerField(default=10, validators=[MinValueValidator(1)])
     sessions_used = models.IntegerField(default=0, validators=[MinValueValidator(0)])
@@ -75,8 +66,8 @@ class SessionCard(models.Model):
         verbose_name_plural = 'Sessiekaarten'
 
     def __str__(self):
-        category = "🎓 " if self.card_category == 'trial' else ""
-        return f"{category}{self.member.full_name} - {self.card_type} ({self.sessions_remaining}/{self.total_sessions})"
+        category = "🎓 " if self.is_trial else ""
+        return f"{category}{self.member.full_name} - {self.card_type.name} ({self.sessions_remaining}/{self.total_sessions})"
 
     @property
     def sessions_remaining(self):
@@ -90,7 +81,7 @@ class SessionCard(models.Model):
     @property
     def is_trial(self):
         """Check if this is a trial card"""
-        return self.card_category == 'trial'
+        return self.card_type.category == 'trial'
 
     def use_session(self):
         """Use one session from the card"""
