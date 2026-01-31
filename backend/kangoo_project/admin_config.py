@@ -19,7 +19,6 @@ ADMIN_GROUPS = [
     ]),
     ('Sessies & Boekingen', [
         ('bookings', 'sessionschedule'),
-        ('bookings', 'sessionbooking'),
         ('bookings', 'sessionattendance'),
         ('cards', 'sessioncard'),
     ]),

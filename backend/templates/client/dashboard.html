@@ -300,53 +300,104 @@
         }
 
         /* Calendar View */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-        }
-
-        .calendar-day {
-            background: #f9fafb;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .calendar-day-header {
-            background: #667eea;
-            color: white;
-            padding: 10px 15px;
-            font-weight: 600;
-            font-size: 14px;
+        .cal-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 15px;
         }
 
-        .calendar-day-date {
-            font-weight: 400;
+        .cal-nav-label {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            text-transform: capitalize;
+        }
+
+        .cal-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .cal-table th {
+            padding: 8px 4px;
+            text-align: center;
             font-size: 13px;
-            opacity: 0.9;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 2px solid #e5e7eb;
         }
 
-        .calendar-event {
-            padding: 10px 15px;
-            border-bottom: 1px solid #e5e7eb;
+        .cal-table td {
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+            padding: 4px;
+            height: 90px;
+        }
+
+        .cal-day-num {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            padding: 2px 6px;
+            display: inline-block;
+            border-radius: 50%;
+            margin-bottom: 2px;
+        }
+
+        .cal-today .cal-day-num {
+            background: #667eea;
+            color: white;
+        }
+
+        .cal-other-month {
+            background: #f9fafb;
+        }
+
+        .cal-other-month .cal-day-num {
+            color: #d1d5db;
+        }
+
+        .cal-session {
+            display: block;
+            font-size: 11px;
+            padding: 2px 4px;
+            margin-bottom: 2px;
+            border-radius: 4px;
             border-left: 3px solid #10b981;
+            background: #ecfdf5;
+            color: #333;
+            text-decoration: none;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            cursor: default;
         }
 
-        .calendar-event:last-child {
-            border-bottom: none;
-        }
-
-        .calendar-event-booked {
+        .cal-session-booked {
             border-left-color: #667eea;
             background: #eff2ff;
         }
 
-        .calendar-event-full {
+        .cal-session-full {
             border-left-color: #ef4444;
+            background: #fef2f2;
             opacity: 0.7;
+        }
+
+        @media (max-width: 768px) {
+            .cal-table td {
+                height: 60px;
+                padding: 2px;
+            }
+            .cal-session {
+                font-size: 10px;
+                padding: 1px 3px;
+            }
+            .cal-day-num {
+                font-size: 11px;
+            }
         }
     </style>
 </head>
@@ -471,54 +522,36 @@
                 </div>
             </div>
             {% if view_mode == 'calendar' %}
-            <!-- Calendar View -->
-            {% if upcoming_sessions %}
-            <div class="calendar-grid">
-                {% regroup upcoming_sessions by datetime.date as sessions_by_day %}
-                {% for day in sessions_by_day %}
-                <div class="calendar-day">
-                    <div class="calendar-day-header">
-                        {{ day.grouper|date:"l" }}
-                        <span class="calendar-day-date">{{ day.grouper|date:"j F" }}</span>
-                    </div>
-                    {% for item in day.list %}
-                    <div class="calendar-event {% if item.already_booked %}calendar-event-booked{% elif not item.can_book %}calendar-event-full{% endif %}">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div>
-                                <div style="font-weight: 600; font-size: 14px;">{{ item.datetime|date:"H:i" }}</div>
-                                <div style="font-size: 13px; color: #333;">{{ item.schedule.title }}</div>
-                                <div style="font-size: 12px; color: #6b7280;">📍 {{ item.schedule.location }}</div>
-                                <div style="font-size: 12px; color: #6b7280;">👥 {{ item.available_capacity }} vrij</div>
-                            </div>
-                            <div>
-                                {% if item.already_booked %}
-                                <span class="badge badge-info" style="font-size: 11px;">Ingeschreven</span>
-                                {% elif item.can_book %}
-                                <form method="post" action="{% url 'accounts:book_session' item.schedule.id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="session_datetime" value="{{ item.datetime|date:'c' }}">
-                                    {% if active_cards %}
-                                    <input type="hidden" name="use_card" value="1">
-                                    {% endif %}
-                                    <button type="submit" class="btn btn-success" style="padding: 4px 10px; font-size: 12px;">Boek</button>
-                                </form>
-                                {% else %}
-                                <span class="badge badge-danger" style="font-size: 11px;">Vol</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+            <!-- Full Month Calendar View -->
+            <div class="cal-nav">
+                <a href="{{ calendar_prev_month }}" class="btn btn-secondary" style="padding: 6px 14px;">&laquo;</a>
+                <span class="cal-nav-label">{{ calendar_month_label }}</span>
+                <a href="{{ calendar_next_month }}" class="btn btn-secondary" style="padding: 6px 14px;">&raquo;</a>
+            </div>
+            <table class="cal-table">
+                <thead>
+                    <tr>
+                        <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for week in calendar_weeks %}
+                    <tr>
+                    {% for day in week %}
+                        <td class="{% if not day.in_month %}cal-other-month{% endif %} {% if day.is_today %}cal-today{% endif %}">
+                            <span class="cal-day-num">{{ day.date.day }}</span>
+                            {% for s in day.sessions %}
+                            <span class="cal-session {% if s.already_booked %}cal-session-booked{% elif not s.can_book %}cal-session-full{% endif %}"
+                                  title="{{ s.schedule.title }} - {{ s.datetime|date:'H:i' }} ({{ s.available_capacity }} vrij)">
+                                {{ s.datetime|date:"H:i" }} {{ s.schedule.title|truncatechars:10 }}
+                            </span>
+                            {% endfor %}
+                        </td>
                     {% endfor %}
-                </div>
+                    </tr>
                 {% endfor %}
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">📅</div>
-                <p>Geen sessies beschikbaar voor uw maat</p>
-                <p style="font-size: 12px; margin-top: 10px;">Neem contact op met de beheerder</p>
-            </div>
-            {% endif %}
+                </tbody>
+            </table>
             {% else %}
             <!-- List View -->
             {% if upcoming_sessions %}

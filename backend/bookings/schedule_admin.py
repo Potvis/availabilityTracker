@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
-from .schedule_models import SessionSchedule, SessionBooking, BusinessEvent, BusinessEventBooking, Company
+from .schedule_models import SessionSchedule, BusinessEvent, BusinessEventBooking, Company
 
 
 @admin.register(SessionSchedule)
@@ -145,85 +145,6 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user.username if request.user.is_authenticated else 'admin'
         super().save_model(request, obj, form, change)
-
-
-@admin.register(SessionBooking)
-class SessionBookingAdmin(admin.ModelAdmin):
-    list_display = [
-        'member_name', 'schedule_info', 'session_datetime',
-        'booked_at', 'status_badge'
-    ]
-    list_filter = ['cancelled_at', 'booked_at', 'schedule__weekday']
-    search_fields = [
-        'attendance__member__email',
-        'attendance__member__first_name',
-        'attendance__member__last_name',
-        'schedule__title'
-    ]
-    date_hierarchy = 'session_datetime'
-
-    readonly_fields = ['booked_at', 'cancelled_at']
-
-    fieldsets = (
-        ('Boeking Informatie', {
-            'fields': ('schedule', 'session_datetime', 'attendance')
-        }),
-        ('Status', {
-            'fields': ('booked_at', 'cancelled_at', 'cancellation_reason')
-        }),
-    )
-
-    def member_name(self, obj):
-        return obj.attendance.member.full_name
-    member_name.short_description = 'Lid'
-    member_name.admin_order_field = 'attendance__member__last_name'
-
-    def schedule_info(self, obj):
-        size_info = ''
-        if obj.attendance.size_category:
-            size_info = f'<br><span style="color: gray; font-size: 11px;">Maat {obj.attendance.size_category}</span>'
-        return format_html(
-            '{}{}',
-            obj.schedule.title,
-            size_info
-        )
-    schedule_info.short_description = 'Sessie'
-
-    def status_badge(self, obj):
-        if obj.is_cancelled:
-            return format_html(
-                '<span style="background-color: red; color: white; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold;">Geannuleerd</span>'
-            )
-
-        if obj.session_datetime < timezone.now():
-            if obj.attendance.was_present:
-                return format_html(
-                    '<span style="background-color: green; color: white; padding: 3px 10px; '
-                    'border-radius: 3px; font-weight: bold;">Aanwezig</span>'
-                )
-            else:
-                return format_html(
-                    '<span style="background-color: orange; color: white; padding: 3px 10px; '
-                    'border-radius: 3px; font-weight: bold;">Afwezig</span>'
-                )
-
-        return format_html(
-            '<span style="background-color: #2196F3; color: white; padding: 3px 10px; '
-            'border-radius: 3px; font-weight: bold;">Gepland</span>'
-        )
-    status_badge.short_description = 'Status'
-
-    actions = ['cancel_bookings']
-
-    def cancel_bookings(self, request, queryset):
-        active_bookings = queryset.filter(cancelled_at__isnull=True)
-        count = 0
-        for booking in active_bookings:
-            booking.cancel(reason='Geannuleerd door admin')
-            count += 1
-        self.message_user(request, f'{count} boeking(en) geannuleerd.')
-    cancel_bookings.short_description = 'Annuleer geselecteerde boekingen'
 
 
 class BusinessEventInline(admin.TabularInline):

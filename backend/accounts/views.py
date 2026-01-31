@@ -9,7 +9,8 @@ from .forms import UserRegistrationForm, UserLoginForm, ProfileCompletionForm, Q
 from .models import UserProfile
 from equipment.assignment import get_equipment_requirements_display
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
+import calendar
 from bookings.schedule_models import SessionSchedule, BusinessEventBooking, SessionBooking
 from bookings.models import SessionAttendance
 from cards.models import CardType
@@ -347,16 +348,26 @@ def client_dashboard(request):
         ).values_list('session_date', flat=True)
     )
 
-    # Get upcoming sessions (next 2 weeks)
+    # Get upcoming sessions
+    # For calendar view, cover the full displayed month; for list view, 4 weeks
     upcoming_sessions = []
     now = timezone.now()
+    view_mode_param = request.GET.get('view', 'list')
+    if view_mode_param == 'calendar':
+        try:
+            cal_y = int(request.GET.get('year', now.year))
+            cal_m = int(request.GET.get('month', now.month))
+        except (ValueError, TypeError):
+            cal_y, cal_m = now.year, now.month
+        num_weeks = 6  # cover full month grid
+    else:
+        num_weeks = 4
+
     for schedule in available_schedules:
-        # Get next 4 occurrences
         current_date = now.date()
-        for i in range(4):
+        for i in range(num_weeks):
             next_occurrence = schedule.get_next_occurrence(current_date)
             if next_occurrence and schedule.is_booking_open(next_occurrence):
-                # Check availability for this specific size
                 available_capacity = schedule.get_available_capacity_for_size(
                     next_occurrence, size_category
                 )
@@ -368,7 +379,6 @@ def client_dashboard(request):
                     'can_book': available_capacity > 0 and not already_booked,
                     'already_booked': already_booked,
                 })
-            # Move to next week
             current_date = current_date + timedelta(days=7)
     
     # Sort by datetime
@@ -406,6 +416,53 @@ def client_dashboard(request):
     # Get available card types for card request
     available_card_types = CardType.objects.filter(is_active=True)
 
+    view_mode = request.GET.get('view', 'list')
+
+    # Build full month calendar for calendar view
+    calendar_weeks = []
+    calendar_month_label = ''
+    calendar_prev_month = ''
+    calendar_next_month = ''
+    if view_mode == 'calendar':
+        # Determine which month to show
+        try:
+            cal_year = int(request.GET.get('year', now.year))
+            cal_month = int(request.GET.get('month', now.month))
+        except (ValueError, TypeError):
+            cal_year, cal_month = now.year, now.month
+
+        calendar_month_label = date(cal_year, cal_month, 1).strftime('%B %Y')
+
+        # Previous/next month links
+        if cal_month == 1:
+            calendar_prev_month = f'?view=calendar&year={cal_year - 1}&month=12'
+        else:
+            calendar_prev_month = f'?view=calendar&year={cal_year}&month={cal_month - 1}'
+        if cal_month == 12:
+            calendar_next_month = f'?view=calendar&year={cal_year + 1}&month=1'
+        else:
+            calendar_next_month = f'?view=calendar&year={cal_year}&month={cal_month + 1}'
+
+        # Build index of sessions by date from upcoming_sessions
+        sessions_by_date = {}
+        for s in upcoming_sessions:
+            d = s['datetime'].date() if hasattr(s['datetime'], 'date') else s['datetime']
+            sessions_by_date.setdefault(d, []).append(s)
+
+        # Build calendar weeks (Monday=0)
+        cal = calendar.Calendar(firstweekday=0)
+        today = now.date()
+        for week in cal.monthdatescalendar(cal_year, cal_month):
+            week_data = []
+            for day in week:
+                week_data.append({
+                    'date': day,
+                    'in_month': day.month == cal_month,
+                    'is_today': day == today,
+                    'sessions': sessions_by_date.get(day, []),
+                })
+            calendar_weeks.append(week_data)
+
     context = {
         'profile': profile,
         'member': member,
@@ -419,7 +476,11 @@ def client_dashboard(request):
         'past_event_bookings': past_event_bookings,
         'available_card_types': available_card_types,
         'insurance_status': member.get_insurance_status_display(),
-        'view_mode': request.GET.get('view', 'list'),
+        'view_mode': view_mode,
+        'calendar_weeks': calendar_weeks,
+        'calendar_month_label': calendar_month_label,
+        'calendar_prev_month': calendar_prev_month,
+        'calendar_next_month': calendar_next_month,
     }
 
     return render(request, 'client/dashboard.html', context)
