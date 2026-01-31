@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -10,7 +10,7 @@ from .models import UserProfile
 from equipment.assignment import get_equipment_requirements_display
 from django.utils import timezone
 from datetime import timedelta
-from bookings.schedule_models import SessionSchedule, BusinessEventBooking
+from bookings.schedule_models import SessionSchedule, BusinessEventBooking, SessionBooking
 from bookings.models import SessionAttendance
 from cards.models import CardType
 
@@ -137,7 +137,7 @@ def profile_complete(request):
 def profile_view(request):
     """View and edit user profile"""
     profile = request.user.profile
-    
+
     if request.method == 'POST':
         form = ProfileCompletionForm(
             request.POST,
@@ -151,9 +151,19 @@ def profile_view(request):
         else:
             messages.error(request, 'Corrigeer de fouten hieronder.')
     else:
+        # Try to pre-populate weight from last known source if not set
+        initial_data = {}
+        if profile.weight is None:
+            last_event_booking = BusinessEventBooking.objects.filter(
+                member=profile.member, weight__isnull=False
+            ).order_by('-booked_at').first()
+            if last_event_booking:
+                initial_data['weight'] = last_event_booking.weight
+
         form = ProfileCompletionForm(
             instance=profile,
-            member=profile.member
+            member=profile.member,
+            initial=initial_data,
         )
     
     # Get equipment requirements
@@ -163,9 +173,6 @@ def profile_view(request):
     active_cards = profile.member.active_cards()
     
     # Get upcoming bookings
-    from bookings.schedule_models import SessionBooking
-    from django.utils import timezone
-    
     upcoming_bookings = SessionBooking.objects.filter(
         attendance__member=profile.member,
         session_datetime__gte=timezone.now(),
@@ -275,6 +282,33 @@ def _send_password_reset_email(user, request=None):
         )
     except Exception:
         pass  # Fail silently to not reveal email info
+
+
+@login_required
+def change_password(request):
+    """Allow authenticated users to change their password"""
+    if request.method == 'POST':
+        current_password = request.POST.get('current_password', '')
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        if not request.user.check_password(current_password):
+            messages.error(request, 'Huidig wachtwoord is onjuist.')
+        elif len(new_password) < 8:
+            messages.error(request, 'Nieuw wachtwoord moet minimaal 8 tekens bevatten.')
+        elif new_password != confirm_password:
+            messages.error(request, 'Nieuwe wachtwoorden komen niet overeen.')
+        else:
+            request.user.set_password(new_password)
+            request.user.save()
+            update_session_auth_hash(request, request.user)
+            messages.success(request, 'Wachtwoord succesvol gewijzigd.')
+            return redirect('accounts:profile')
+
+    return render(request, 'accounts/change_password.html', {
+        'title': 'Wachtwoord Wijzigen'
+    })
+
 
 @login_required
 def client_dashboard(request):
@@ -397,9 +431,6 @@ def book_session(request, schedule_id):
     Book a session for the logged-in user.
     A session card is optional - clients can book with or without one.
     """
-    from bookings.schedule_models import SessionSchedule, SessionBooking
-    from bookings.models import SessionAttendance
-
     if request.method != 'POST':
         return redirect('accounts:client_dashboard')
 
@@ -486,11 +517,9 @@ def cancel_booking(request, booking_id):
     """
     Cancel a booking
     """
-    from bookings.models import SessionAttendance
-    
     if request.method != 'POST':
         return redirect('accounts:client_dashboard')
-    
+
     profile = request.user.profile
     member = profile.member
     

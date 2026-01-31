@@ -21,6 +21,7 @@ urlpatterns = [
     path('profile/complete/', views.profile_complete, name='profile_complete'),
     path('profile/quick-update/', views.profile_quick_update, name='profile_quick_update'),
     
-    # Password reset
+    # Password reset & change
     path('password-reset/', views.password_reset_request, name='password_reset'),
+    path('password/change/', views.change_password, name='change_password'),
 ]

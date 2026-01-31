@@ -4,6 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from bookings.event_views import event_booking_page, event_confirmation, company_events_page
+from .admin_config import configure_admin
+
+configure_admin()
 
 
 def root_redirect(request):
@@ -30,7 +33,3 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-admin.site.site_header = "Jump4Fun Beheer"
-admin.site.site_title = "Kangoo Admin"
-admin.site.index_title = "Welkom bij Jump4Fun Beheer"
