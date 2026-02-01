@@ -138,12 +138,13 @@ def profile_complete(request):
 def profile_view(request):
     """View and edit user profile"""
     profile = request.user.profile
+    member = profile.member
 
     if request.method == 'POST':
         form = ProfileCompletionForm(
             request.POST,
             instance=profile,
-            member=profile.member
+            member=member
         )
         if form.is_valid():
             form.save()
@@ -151,44 +152,67 @@ def profile_view(request):
             return redirect('accounts:profile')
         else:
             messages.error(request, 'Corrigeer de fouten hieronder.')
+
+        # For POST with errors, use submitted values so user sees what they typed
+        field_values = {
+            'first_name': request.POST.get('first_name', ''),
+            'last_name': request.POST.get('last_name', ''),
+            'phone': request.POST.get('phone', ''),
+            'date_of_birth': request.POST.get('date_of_birth', ''),
+            'shoe_size': request.POST.get('shoe_size', ''),
+            'weight': request.POST.get('weight', ''),
+        }
     else:
         # Try to pre-populate weight from last known source if not set
         initial_data = {}
-        if profile.weight is None:
+        weight_value = profile.weight
+        if weight_value is None:
             last_event_booking = BusinessEventBooking.objects.filter(
-                member=profile.member, weight__isnull=False
+                member=member, weight__isnull=False
             ).order_by('-booked_at').first()
             if last_event_booking:
-                initial_data['weight'] = last_event_booking.weight
+                weight_value = last_event_booking.weight
+                initial_data['weight'] = weight_value
 
         form = ProfileCompletionForm(
             instance=profile,
-            member=profile.member,
+            member=member,
             initial=initial_data,
         )
-    
+
+        # Pre-format values for HTML5 inputs (bypasses Django L10N issues)
+        field_values = {
+            'first_name': member.first_name or '',
+            'last_name': member.last_name or '',
+            'phone': member.phone or '',
+            'date_of_birth': member.date_of_birth.isoformat() if member.date_of_birth else '',
+            'shoe_size': member.shoe_size or '',
+            'weight': str(weight_value) if weight_value is not None else '',
+        }
+
     # Get equipment requirements
-    equipment_req = get_equipment_requirements_display(profile.member)
-    
+    equipment_req = get_equipment_requirements_display(member)
+
     # Get user's active cards
-    active_cards = profile.member.active_cards()
-    
+    active_cards = member.active_cards()
+
     # Get upcoming bookings
     upcoming_bookings = SessionBooking.objects.filter(
-        attendance__member=profile.member,
+        attendance__member=member,
         session_datetime__gte=timezone.now(),
         cancelled_at__isnull=True
     ).select_related('schedule', 'attendance').order_by('session_datetime')[:5]
-    
+
     context = {
         'form': form,
         'profile': profile,
+        'field_values': field_values,
         'equipment_requirements': equipment_req,
         'active_cards': active_cards,
         'upcoming_bookings': upcoming_bookings,
         'title': 'Mijn Profiel'
     }
-    
+
     return render(request, 'accounts/profile.html', context)
 
 

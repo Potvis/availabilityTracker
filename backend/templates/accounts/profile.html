@@ -1,4 +1,3 @@
-{% load l10n %}
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -303,7 +302,7 @@
                                 <label for="id_first_name">Voornaam</label>
                                 <input type="text" name="first_name" id="id_first_name"
                                        class="form-control {% if form.first_name.errors %}error{% endif %}"
-                                       value="{{ form.first_name.value|default:'' }}"
+                                       value="{{ field_values.first_name }}"
                                        placeholder="Voornaam" required>
                                 {% if form.first_name.errors %}
                                 <div class="error-text">{{ form.first_name.errors.0 }}</div>
@@ -314,7 +313,7 @@
                                 <label for="id_last_name">Achternaam</label>
                                 <input type="text" name="last_name" id="id_last_name"
                                        class="form-control {% if form.last_name.errors %}error{% endif %}"
-                                       value="{{ form.last_name.value|default:'' }}"
+                                       value="{{ field_values.last_name }}"
                                        placeholder="Achternaam" required>
                                 {% if form.last_name.errors %}
                                 <div class="error-text">{{ form.last_name.errors.0 }}</div>
@@ -327,7 +326,7 @@
                                 <label for="id_phone">Telefoonnummer</label>
                                 <input type="tel" name="phone" id="id_phone"
                                        class="form-control {% if form.phone.errors %}error{% endif %}"
-                                       value="{{ form.phone.value|default:'' }}"
+                                       value="{{ field_values.phone }}"
                                        placeholder="+32 123 45 67 89" required>
                                 {% if form.phone.errors %}
                                 <div class="error-text">{{ form.phone.errors.0 }}</div>
@@ -338,7 +337,7 @@
                                 <label for="id_date_of_birth">Geboortedatum</label>
                                 <input type="date" name="date_of_birth" id="id_date_of_birth"
                                        class="form-control {% if form.date_of_birth.errors %}error{% endif %}"
-                                       value="{{ form.date_of_birth.value|date:'Y-m-d' }}" required>
+                                       value="{{ field_values.date_of_birth }}" required>
                                 {% if form.date_of_birth.errors %}
                                 <div class="error-text">{{ form.date_of_birth.errors.0 }}</div>
                                 {% endif %}
@@ -351,7 +350,7 @@
                                 <label for="id_shoe_size">Schoenmaat</label>
                                 <input type="text" name="shoe_size" id="id_shoe_size"
                                        class="form-control {% if form.shoe_size.errors %}error{% endif %}"
-                                       value="{{ form.shoe_size.value|default:'' }}"
+                                       value="{{ field_values.shoe_size }}"
                                        placeholder="Bijv. 42" required>
                                 {% if form.shoe_size.errors %}
                                 <div class="error-text">{{ form.shoe_size.errors.0 }}</div>
@@ -363,7 +362,7 @@
                                 <label for="id_weight">Gewicht (kg)</label>
                                 <input type="number" name="weight" id="id_weight"
                                        class="form-control {% if form.weight.errors %}error{% endif %}"
-                                       value="{% if form.weight.value %}{{ form.weight.value|unlocalize }}{% endif %}"
+                                       value="{{ field_values.weight }}"
                                        placeholder="Bijv. 75.5"
                                        step="0.1" min="30" max="300" required>
                                 {% if form.weight.errors %}
