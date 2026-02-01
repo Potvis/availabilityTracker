@@ -9,7 +9,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from django.utils import timezone
 
-from .schedule_models import BusinessEvent, BusinessEventBooking
+from .schedule_models import BusinessEvent, BusinessEventBooking, Company
 from .forms import BusinessEventBookingForm
 from equipment.assignment import get_size_category_from_shoe_size
 from members.models import Member
@@ -225,4 +225,161 @@ def event_confirmation(request, token, booking_id):
     return render(request, 'events/event_confirmation.html', {
         'event': event,
         'booking': booking,
+    })
+
+
+def company_events_page(request, token):
+    """
+    Public page for a company, showing all available events.
+    Users pick which event(s) to book from one company link.
+    """
+    company = get_object_or_404(Company, token=token)
+
+    if not company.is_active:
+        return render(request, 'events/event_closed.html', {
+            'event': None,
+            'company': company,
+            'reason': 'inactive',
+        })
+
+    active_events = company.get_active_events()
+
+    if not active_events.exists():
+        return render(request, 'events/event_closed.html', {
+            'event': None,
+            'company': company,
+            'reason': 'no_events',
+        })
+
+    # Check which events the user already booked (by email from session or form)
+    user_email = request.session.get('company_booking_email', '')
+    booked_event_ids = set()
+    if user_email:
+        booked_event_ids = set(
+            BusinessEventBooking.objects.filter(
+                event__company=company,
+                email=user_email
+            ).values_list('event_id', flat=True)
+        )
+
+    # If user selected a specific event, show the booking form
+    selected_event_id = request.GET.get('event') or request.POST.get('event_id')
+    selected_event = None
+    form = None
+
+    if selected_event_id:
+        try:
+            selected_event = active_events.get(pk=selected_event_id)
+        except BusinessEvent.DoesNotExist:
+            selected_event = None
+
+    if selected_event and request.method == 'POST':
+        form = BusinessEventBookingForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+
+            # Check if already booked for this event
+            if BusinessEventBooking.objects.filter(event=selected_event, email=email).exists():
+                # Check if company allows multiple bookings for different events
+                if not company.allow_multiple_bookings or selected_event.pk in booked_event_ids:
+                    messages.error(
+                        request,
+                        'U bent al ingeschreven voor dit evenement.'
+                    )
+                    return render(request, 'events/company_events.html', {
+                        'company': company,
+                        'events': active_events,
+                        'selected_event': selected_event,
+                        'form': form,
+                        'booked_event_ids': booked_event_ids,
+                    })
+
+            # If company doesn't allow multiple bookings, check across all events
+            if not company.allow_multiple_bookings and booked_event_ids:
+                messages.error(
+                    request,
+                    'U bent al ingeschreven voor een evenement van dit bedrijf. '
+                    'Meerdere inschrijvingen zijn niet toegestaan.'
+                )
+                return render(request, 'events/company_events.html', {
+                    'company': company,
+                    'events': active_events,
+                    'selected_event': selected_event,
+                    'form': form,
+                    'booked_event_ids': booked_event_ids,
+                })
+
+            size_category = get_size_category_from_shoe_size(form.cleaned_data['shoe_size'])
+
+            if not size_category or not selected_event.can_book_for_size(size_category):
+                messages.error(
+                    request,
+                    'Er is geen apparatuur meer beschikbaar voor uw schoenmaat.'
+                )
+                return render(request, 'events/company_events.html', {
+                    'company': company,
+                    'events': active_events,
+                    'selected_event': selected_event,
+                    'form': form,
+                    'booked_event_ids': booked_event_ids,
+                })
+
+            booking = form.save(commit=False)
+            booking.event = selected_event
+            booking.size_category = size_category or ''
+
+            create_account = form.cleaned_data.get('create_account')
+            if create_account:
+                password = form.cleaned_data['password1']
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=password,
+                    first_name=form.cleaned_data['first_name'],
+                    last_name=form.cleaned_data['last_name'],
+                )
+                member = user.profile.member
+                member.phone = form.cleaned_data.get('phone', '')
+                member.shoe_size = form.cleaned_data['shoe_size']
+                member.save()
+
+                user.profile.weight = form.cleaned_data['weight']
+                user.profile.save()
+                user.profile.check_profile_complete()
+
+                booking.member = member
+                booking.save()
+                login(request, user)
+            else:
+                booking.save()
+                request.session['event_booking_id'] = booking.pk
+
+            # Remember email for multi-booking
+            request.session['company_booking_email'] = email
+
+            _send_booking_confirmation_email(selected_event, booking)
+
+            return redirect('event_confirmation', token=selected_event.token, booking_id=booking.pk)
+
+    elif selected_event:
+        form = BusinessEventBookingForm()
+
+    # Build event list with availability info
+    events_with_info = []
+    for event in active_events:
+        available = event.get_available_spots()
+        events_with_info.append({
+            'event': event,
+            'available_spots': available,
+            'can_book': event.can_book(),
+            'already_booked': event.pk in booked_event_ids,
+        })
+
+    return render(request, 'events/company_events.html', {
+        'company': company,
+        'events_with_info': events_with_info,
+        'selected_event': selected_event,
+        'form': form,
+        'booked_event_ids': booked_event_ids,
+        'allow_multiple': company.allow_multiple_bookings,
     })

@@ -9,10 +9,12 @@ class ProfileCompletionMiddleware:
     EXEMPT_URLS = [
         '/accounts/profile/complete/',
         '/accounts/logout/',
+        '/accounts/password-reset/',
         '/admin/',
         '/static/',
         '/media/',
         '/evenement/',
+        '/bedrijf/',
     ]
     
     def __init__(self, get_response):

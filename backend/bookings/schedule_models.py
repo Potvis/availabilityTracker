@@ -257,43 +257,85 @@ class SessionBooking(models.Model):
             self.cancellation_reason = reason
             self.save()
 
+class Company(models.Model):
+    """
+    A company that can have multiple business events.
+    Each company gets one shareable link; users pick from available events.
+    """
+    name = models.CharField(max_length=200, verbose_name='Bedrijfsnaam')
+    contact_email = models.EmailField(blank=True, verbose_name='Contact E-mail')
+    contact_phone = models.CharField(max_length=20, blank=True, verbose_name='Contact Telefoon')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    allow_multiple_bookings = models.BooleanField(
+        default=False,
+        verbose_name='Meerdere inschrijvingen toestaan',
+        help_text='Als aangevinkt mogen gebruikers zich voor meerdere events van dit bedrijf inschrijven'
+    )
+    notes = models.TextField(blank=True, verbose_name='Opmerkingen')
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Bedrijf'
+        verbose_name_plural = 'Bedrijven'
+
+    def __str__(self):
+        return self.name
+
+    def get_active_events(self):
+        return self.events.filter(is_active=True, event_datetime__gt=timezone.now()).order_by('event_datetime')
+
+
 class BusinessEvent(models.Model):
     """
     A private/business event session with a unique shareable link.
     Guests can book via the link without needing an account.
+    Can belong to a company for multi-event support.
     """
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='events',
+        verbose_name='Bedrijf',
+        help_text='Optioneel: koppel aan een bedrijf voor meerdere events onder één link'
+    )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     location = models.CharField(max_length=200, default='Deinze Kouter 93')
- 
+
     event_datetime = models.DateTimeField(help_text="Datum en tijd van het evenement")
     duration_minutes = models.IntegerField(
         default=60,
         validators=[MinValueValidator(15), MaxValueValidator(180)],
         help_text="Duur in minuten"
     )
- 
+
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
- 
+
     max_capacity = models.IntegerField(
         null=True, blank=True,
         validators=[MinValueValidator(1)],
         help_text="Maximaal aantal deelnemers (leeg = gebaseerd op apparatuur)"
     )
- 
+
     is_active = models.BooleanField(default=True, help_text="Is dit evenement nog open voor boekingen")
- 
+
     created_by = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
- 
+
     class Meta:
         ordering = ['-event_datetime']
         verbose_name = 'Bedrijfsevenement'
         verbose_name_plural = 'Bedrijfsevenementen'
- 
+
     def __str__(self):
-        return f"{self.title} - {self.event_datetime.strftime('%d-%m-%Y %H:%M')}"
+        prefix = f"{self.company.name} - " if self.company else ""
+        return f"{prefix}{self.title} - {self.event_datetime.strftime('%d-%m-%Y %H:%M')}"
  
     @property
     def is_in_future(self):
@@ -382,7 +424,6 @@ class BusinessEventBooking(models.Model):
         ordering = ['-booked_at']
         verbose_name = 'Evenement Boeking'
         verbose_name_plural = 'Evenement Boekingen'
-        unique_together = ['event', 'email']
  
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.event.title}"

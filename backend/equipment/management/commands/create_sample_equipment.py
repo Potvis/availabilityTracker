@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from equipment.models import Equipment
+from equipment.models import Equipment, SpringType
 from datetime import date, timedelta
 import random
 
@@ -18,6 +18,16 @@ class Command(BaseCommand):
         if options['clear']:
             deleted_count = Equipment.objects.all().delete()[0]
             self.stdout.write(self.style.WARNING(f'Deleted {deleted_count} existing equipment items'))
+
+        # Ensure default spring types exist
+        spring_standard, _ = SpringType.objects.get_or_create(
+            name='Standaard',
+            defaults={'description': 'Standaard veer voor de meeste gebruikers', 'is_active': True}
+        )
+        spring_hd, _ = SpringType.objects.get_or_create(
+            name='HD',
+            defaults={'description': 'Heavy Duty veer voor zwaardere gebruikers (80kg+)', 'is_active': True}
+        )
 
         # Define equipment distribution per size
         # Realistic distribution: more medium sizes, fewer XL
@@ -63,24 +73,24 @@ class Command(BaseCommand):
                 status = random.choice(status_choices)
 
                 # Spring type - standard mostly, some HD for heavier users
-                spring_type = 'hd' if size in ['L', 'XL'] and random.random() > 0.6 else 'standard'
+                spring = spring_hd if size in ['L', 'XL'] and random.random() > 0.6 else spring_standard
 
                 Equipment.objects.create(
                     name=f"Kangoo Jumps {size}",
                     equipment_id=equipment_id,
                     size=size,
                     status=status,
-                    spring_type=spring_type,
+                    spring_type=spring,
                     purchase_date=purchase_date,
                     last_maintenance=last_maintenance,
                     next_maintenance=next_maintenance,
                     notes=f"Kangoo Jumps schoenen maat {size}" + (
-                        " - HD veren voor zwaardere gebruikers" if spring_type == 'hd' else ""
+                        " - HD veren voor zwaardere gebruikers" if spring == spring_hd else ""
                     )
                 )
                 created_count += 1
                 status_icon = '✓' if status == 'available' else ('⚠' if status == 'maintenance' else '✗')
-                self.stdout.write(f'  {status_icon} Created {equipment_id} ({size}, {spring_type}, {status})')
+                self.stdout.write(f'  {status_icon} Created {equipment_id} ({size}, {spring.name}, {status})')
 
         self.stdout.write(self.style.SUCCESS(f'\nCreated {created_count} equipment items'))
 

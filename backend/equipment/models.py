@@ -1,5 +1,36 @@
 from django.db import models
 
+
+class SpringType(models.Model):
+    """Admin-configurable spring types for equipment."""
+    name = models.CharField(max_length=50, unique=True, verbose_name='Naam')
+    description = models.TextField(blank=True, verbose_name='Beschrijving')
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Soort Veer'
+        verbose_name_plural = 'Soorten Veren'
+
+    def __str__(self):
+        return self.name
+
+
+class ShellType(models.Model):
+    """Admin-configurable shell types for equipment."""
+    name = models.CharField(max_length=50, unique=True, verbose_name='Naam')
+    description = models.TextField(blank=True, verbose_name='Beschrijving')
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Soort Schelp'
+        verbose_name_plural = 'Soorten Schelpen'
+
+    def __str__(self):
+        return self.name
+
+
 class Equipment(models.Model):
     STATUS_CHOICES = [
         ('available', 'Beschikbaar'),
@@ -14,20 +45,25 @@ class Equipment(models.Model):
         ('XL', 'Extra Large (47+)'),
     ]
 
-    SPRING_TYPE_CHOICES = [
-        ('standard', 'Standaard'),
-        ('hd', 'HD'),
-    ]
-
     name = models.CharField(max_length=100)
     equipment_id = models.CharField(max_length=50, unique=True, help_text="Unieke ID voor dit stuk apparatuur")
     size = models.CharField(max_length=5, choices=SIZE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
-    spring_type = models.CharField(
-        max_length=20, 
-        choices=SPRING_TYPE_CHOICES, 
-        default='standard',
-        verbose_name='Soort Veer'
+    spring_type = models.ForeignKey(
+        SpringType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Soort Veer',
+        help_text='Type veer (beheerd via Soorten Veren)'
+    )
+    shell_type = models.ForeignKey(
+        ShellType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Soort Schelp',
+        help_text='Type schelp van de schoen'
     )
     purchase_date = models.DateField(null=True, blank=True)
     last_maintenance = models.DateField(null=True, blank=True)
@@ -42,7 +78,12 @@ class Equipment(models.Model):
         verbose_name_plural = 'Apparatuur'
 
     def __str__(self):
-        return f"{self.name} ({self.equipment_id}) - {self.get_size_display()} - {self.get_spring_type_display()}"
+        parts = [f"{self.name} ({self.equipment_id})", self.get_size_display()]
+        if self.spring_type:
+            parts.append(self.spring_type.name)
+        if self.shell_type:
+            parts.append(f"Schelp: {self.shell_type.name}")
+        return ' - '.join(parts)
 
     @property
     def is_available(self):
