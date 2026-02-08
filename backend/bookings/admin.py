@@ -1,3 +1,6 @@
+# Import schedule admin (auto-registers via decorators)
+from . import schedule_admin
+
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import path
@@ -107,13 +110,13 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         if not obj or not obj.session_card:
             return format_html('<span style="color: gray;">Geen kaart</span>')
         
-        is_trial = obj.session_card.card_category == 'trial'
+        is_trial = obj.session_card.is_trial
         trial_icon = '🎓' if is_trial else ''
         color = 'green' if obj.card_session_used else 'orange'
         symbol = '✓' if obj.card_session_used else '○'
         return format_html(
             '<span style="color: {};">{} {}{}</span>',
-            color, symbol, trial_icon, obj.session_card.card_type
+            color, symbol, trial_icon, obj.session_card.card_type.name
         )
     card_used.short_description = 'Kaart'
     
@@ -202,16 +205,46 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
                 return member.last_name.lower()
             else:
                 return member.email.lower()
-        
+
         attendances.sort(key=get_sort_key)
-        
+
+        # Add equipment info per attendance and build summary
+        size_spring_counter = Counter()
+        for att in attendances:
+            weight = None
+            if hasattr(att.member, 'user_profile') and att.member.user_profile:
+                weight = att.member.user_profile.weight
+            spring_type = get_spring_type_from_weight(weight)
+            spring_display = 'HD' if spring_type == 'hd' else 'Standaard'
+            att.equipment_info = {
+                'spring_type': spring_type,
+                'spring_display': spring_display,
+            }
+            size_cat = att.size_category or '?'
+            size_spring_counter[(size_cat, spring_type)] += 1
+
+        # Build summary list sorted by size then spring
+        size_order = {'S': 0, 'M': 1, 'L': 2, 'XL': 3, '?': 4}
+        size_spring_summary = []
+        for (size, spring), count in sorted(
+            size_spring_counter.items(),
+            key=lambda x: (size_order.get(x[0][0], 99), x[0][1])
+        ):
+            size_spring_summary.append({
+                'size': size,
+                'spring': spring,
+                'spring_display': 'HD' if spring == 'hd' else 'Standaard',
+                'count': count,
+            })
+
         context = {
             'attendances': attendances,
             'session_title': attendances[0].title if attendances else 'Sessie',
             'session_date': attendances[0].session_date if attendances else '',
             'total_count': len(attendances),
+            'size_spring_summary': size_spring_summary,
         }
-        
+
         html = render_to_string('admin/bookings/attendance_print.html', context)
         return HttpResponse(html)
     

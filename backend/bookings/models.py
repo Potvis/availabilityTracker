@@ -5,11 +5,19 @@ from django.utils import timezone
 from members.models import Member
 from cards.models import SessionCard
 
+SIZE_CATEGORY_CHOICES = [
+    ('S', 'Small (32-36)'),
+    ('M', 'Medium (37-41)'),
+    ('L', 'Large (42-46)'),
+    ('XL', 'Extra Large (47+)'),
+]
+
+
 class SessionAttendance(models.Model):
     """Record of a member attending a session"""
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='attendances')
     session_card = models.ForeignKey(SessionCard, on_delete=models.SET_NULL, null=True, blank=True, related_name='usages')
-    
+
     # Session details from CSV
     session_date = models.DateTimeField()
     title = models.CharField(max_length=200)
@@ -18,6 +26,15 @@ class SessionAttendance(models.Model):
     capacity = models.IntegerField(null=True, blank=True)
     total_attendees = models.IntegerField(null=True, blank=True)
     waiting_list = models.IntegerField(default=0)
+
+    # Size category for booking
+    size_category = models.CharField(
+        max_length=5,
+        choices=SIZE_CATEGORY_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Schoenmaat categorie voor deze boeking"
+    )
     
     # Tracking fields
     created_by = models.CharField(max_length=100, blank=True)
@@ -98,3 +115,5 @@ def return_card_session_on_delete(sender, instance, **kwargs):
             
         except Exception as e:
             print(f"❌ Error returning card session: {e}")
+# Import schedule models
+from .schedule_models import SessionSchedule, SessionBooking

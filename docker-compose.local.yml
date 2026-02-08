@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: jump4fun_db_local
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=kangoo          # ← Change from kangoo_dev to kangoo
+      - POSTGRES_USER=kangoo
+      - POSTGRES_PASSWORD=kangoo_dev_password_local
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kangoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    container_name: jump4fun_web_local
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      - ./media:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PASSWORD=kangoo_dev_password_local
+      - DATABASE_URL=postgresql://kangoo:kangoo_dev_password_local@db:5432/kangoo  # ← Change to kangoo
+      - DEBUG=True
+      - SECRET_KEY=local-dev-secret-key-change-this
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local:

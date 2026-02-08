@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} - Jump4Fun</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .closed-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .closed-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .closed-message {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .event-name {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <h1>Jump4Fun</h1>
+                <p>Bedrijfsevenement</p>
+            </div>
+
+            <div class="event-name">{{ event.title }}</div>
+
+            {% if reason == 'past' %}
+            <div class="closed-icon">&#8987;</div>
+            <div class="closed-title">Evenement is verlopen</div>
+            <div class="closed-message">
+                Dit evenement heeft plaatsgevonden op {{ event.event_datetime|date:"j F Y" }} en is niet meer beschikbaar voor inschrijving.
+            </div>
+            {% elif reason == 'full' %}
+            <div class="closed-icon">&#128532;</div>
+            <div class="closed-title">Evenement is vol</div>
+            <div class="closed-message">
+                Alle plaatsen voor dit evenement zijn bezet. Neem contact op met de organisator als u op een wachtlijst wilt.
+            </div>
+            {% elif reason == 'inactive' %}
+            <div class="closed-icon">&#128275;</div>
+            <div class="closed-title">Inschrijving gesloten</div>
+            <div class="closed-message">
+                De inschrijving voor dit evenement is momenteel gesloten. Neem contact op met de organisator voor meer informatie.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

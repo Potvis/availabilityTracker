@@ -3,32 +3,31 @@ from django.core.validators import EmailValidator
 
 class Member(models.Model):
     INSURANCE_STATUS_CHOICES = [
-        ('none', 'Geen Verzekering'),
-        ('requested', 'Aangevraagd (Contact Nodig)'),
-        ('pending', 'In Afwachting van Bevestiging'),
-        ('insured', 'Verzekerd'),
+        ('none', 'Niet aangevraagd'),
+        ('requested', 'Aangevraagd'),
+        ('processing', 'In verwerking'),
+        ('approved', 'In orde'),
+        ('refused', 'Geweigerd (wil geen verzekering)'),
     ]
-    
+
     email = models.EmailField(unique=True, validators=[EmailValidator()])
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
+    date_of_birth = models.DateField(
+        null=True, blank=True,
+        verbose_name='Geboortedatum',
+        help_text='Vereist voor verzekering'
+    )
     shoe_size = models.CharField(max_length=10, blank=True)
     phone = models.CharField(max_length=20, blank=True)
-    notes = models.TextField(blank=True, verbose_name='Notities')
-    
-    # Insurance fields
-    wants_insurance = models.BooleanField(
-        default=False,
-        verbose_name='Wil Verzekering',
-        help_text='Lid wil een verzekering afsluiten'
-    )
     insurance_status = models.CharField(
         max_length=20,
         choices=INSURANCE_STATUS_CHOICES,
         default='none',
-        verbose_name='Verzekering Status'
+        verbose_name='Verzekeringsstatus',
+        help_text='Status van de verzekering voor dit lid'
     )
-    
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
