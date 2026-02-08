@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from .schedule_models import BusinessEvent, BusinessEventBooking, Company
 from .forms import BusinessEventBookingForm
-from equipment.assignment import get_size_category_from_shoe_size
+from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight
 from members.models import Member
 
 logger = logging.getLogger(__name__)
@@ -126,13 +126,16 @@ def event_booking_page(request, token):
                     'form': form,
                 })
 
-            # Compute size category
+            # Compute size category and spring type
             size_category = get_size_category_from_shoe_size(
                 form.cleaned_data['shoe_size']
             )
+            spring_type_key = get_spring_type_from_weight(
+                form.cleaned_data.get('weight')
+            )
 
-            # Check size-specific equipment availability
-            if not size_category or not event.can_book_for_size(size_category):
+            # Check size-specific equipment availability (including spring type)
+            if not size_category or not event.can_book_for_size(size_category, spring_type_key):
                 messages.error(
                     request,
                     'Er is geen apparatuur meer beschikbaar voor uw schoenmaat. '
@@ -310,8 +313,9 @@ def company_events_page(request, token):
                 })
 
             size_category = get_size_category_from_shoe_size(form.cleaned_data['shoe_size'])
+            spring_type_key = get_spring_type_from_weight(form.cleaned_data.get('weight'))
 
-            if not size_category or not selected_event.can_book_for_size(size_category):
+            if not size_category or not selected_event.can_book_for_size(size_category, spring_type_key):
                 messages.error(
                     request,
                     'Er is geen apparatuur meer beschikbaar voor uw schoenmaat.'
