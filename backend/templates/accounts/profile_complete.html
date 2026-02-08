@@ -274,6 +274,18 @@
                     {% endif %}
                 </div>
 
+                <div class="form-group">
+                    <label for="id_date_of_birth">Geboortedatum *</label>
+                    <input type="date" name="date_of_birth" id="id_date_of_birth"
+                           class="form-control {% if form.date_of_birth.errors %}error{% endif %}"
+                           value="{{ form.date_of_birth.value|default:'' }}"
+                           required>
+                    {% if form.date_of_birth.errors %}
+                    <div class="error-text">{{ form.date_of_birth.errors.0 }}</div>
+                    {% endif %}
+                    <div class="help-text">Vereist voor verzekering</div>
+                </div>
+
                 <div class="section-title">Apparatuur gegevens</div>
 
                 <div class="row">
