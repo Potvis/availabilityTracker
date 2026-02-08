@@ -30,12 +30,12 @@ class SessionCardInline(admin.TabularInline):
 @admin.register(Member)
 class MemberAdmin(admin.ModelAdmin):
     list_display = [
-        'email', 'full_name', 'shoe_size', 'insurance_badge', 
-        'notes_short', 'total_sessions', 'active_cards_count', 'created_at'
+        'email', 'full_name', 'shoe_size', 'insurance_status_badge',
+        'total_sessions_display', 'active_cards_count', 'created_at'
     ]
-    list_filter = ['created_at', 'shoe_size', 'wants_insurance', 'insurance_status']
+    list_filter = ['created_at', 'shoe_size', 'insurance_status']
     search_fields = ['email', 'first_name', 'last_name', 'phone', 'notes']
-    readonly_fields = ['created_at', 'updated_at', 'total_sessions', 'cards_info']
+    readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
         ('Persoonlijke Informatie', {
