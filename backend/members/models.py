@@ -27,6 +27,22 @@ class Member(models.Model):
         verbose_name='Verzekeringsstatus',
         help_text='Status van de verzekering voor dit lid'
     )
+    # Admin overrides for shoe assignment (take priority over auto-calculation)
+    override_size_type = models.ForeignKey(
+        'equipment.SizeType',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Overschrijf schoenmaat',
+        help_text='Handmatig ingestelde schoenmaat categorie (overschrijft automatische toewijzing)'
+    )
+    override_spring_type = models.ForeignKey(
+        'equipment.SpringType',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Overschrijf veer type',
+        help_text='Handmatig ingesteld veer type (overschrijft automatische toewijzing op basis van gewicht)'
+    )
+
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

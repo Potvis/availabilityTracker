@@ -23,7 +23,7 @@
 
         .container {
             width: 100%;
-            max-width: 450px;
+            max-width: 500px;
         }
 
         .card {
@@ -155,6 +155,16 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -178,9 +188,11 @@
             <form method="post" novalidate>
                 {% csrf_token %}
 
+                <div class="section-title">Persoonlijke gegevens</div>
+
                 <div class="row">
                     <div class="form-group">
-                        <label for="id_first_name">Voornaam</label>
+                        <label for="id_first_name">Voornaam *</label>
                         <input type="text" name="first_name" id="id_first_name"
                                class="form-control {% if form.first_name.errors %}error{% endif %}"
                                value="{{ form.first_name.value|default:'' }}"
@@ -191,7 +203,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="id_last_name">Achternaam</label>
+                        <label for="id_last_name">Achternaam *</label>
                         <input type="text" name="last_name" id="id_last_name"
                                class="form-control {% if form.last_name.errors %}error{% endif %}"
                                value="{{ form.last_name.value|default:'' }}"
@@ -203,7 +215,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="id_date_of_birth">Geboortedatum</label>
+                    <label for="id_date_of_birth">Geboortedatum *</label>
                     <input type="date" name="date_of_birth" id="id_date_of_birth"
                            class="form-control {% if form.date_of_birth.errors %}error{% endif %}"
                            value="{{ form.date_of_birth.value|default:'' }}" required>
@@ -214,7 +226,49 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="id_email">E-mailadres</label>
+                    <label for="id_phone">Telefoonnummer *</label>
+                    <input type="tel" name="phone" id="id_phone"
+                           class="form-control {% if form.phone.errors %}error{% endif %}"
+                           value="{{ form.phone.value|default:'' }}"
+                           placeholder="+32 123 45 67 89" required>
+                    {% if form.phone.errors %}
+                    <div class="error-text">{{ form.phone.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="section-title">Apparatuur gegevens</div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label for="id_shoe_size">Schoenmaat *</label>
+                        <input type="text" name="shoe_size" id="id_shoe_size"
+                               class="form-control {% if form.shoe_size.errors %}error{% endif %}"
+                               value="{{ form.shoe_size.value|default:'' }}"
+                               placeholder="Bijv. 42" required>
+                        {% if form.shoe_size.errors %}
+                        <div class="error-text">{{ form.shoe_size.errors.0 }}</div>
+                        {% endif %}
+                        <div class="help-text">Europese maat (25-55)</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_weight">Gewicht (kg) *</label>
+                        <input type="number" name="weight" id="id_weight"
+                               class="form-control {% if form.weight.errors %}error{% endif %}"
+                               value="{{ form.weight.value|default:'' }}"
+                               placeholder="Bijv. 75.5"
+                               step="0.1" min="30" max="300" required>
+                        {% if form.weight.errors %}
+                        <div class="error-text">{{ form.weight.errors.0 }}</div>
+                        {% endif %}
+                        <div class="help-text">Nodig voor juiste veersterkte</div>
+                    </div>
+                </div>
+
+                <div class="section-title">Account gegevens</div>
+
+                <div class="form-group">
+                    <label for="id_email">E-mailadres *</label>
                     <input type="email" name="email" id="id_email"
                            class="form-control {% if form.email.errors %}error{% endif %}"
                            value="{{ form.email.value|default:'' }}"
@@ -225,7 +279,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="id_password1">Wachtwoord</label>
+                    <label for="id_password1">Wachtwoord *</label>
                     <input type="password" name="password1" id="id_password1"
                            class="form-control {% if form.password1.errors %}error{% endif %}"
                            placeholder="Kies een wachtwoord" required>
@@ -236,7 +290,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="id_password2">Bevestig wachtwoord</label>
+                    <label for="id_password2">Bevestig wachtwoord *</label>
                     <input type="password" name="password2" id="id_password2"
                            class="form-control {% if form.password2.errors %}error{% endif %}"
                            placeholder="Herhaal uw wachtwoord" required>

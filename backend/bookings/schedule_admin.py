@@ -7,7 +7,8 @@ from .schedule_models import SessionSchedule, BusinessEvent, BusinessEventBookin
 @admin.register(SessionSchedule)
 class SessionScheduleAdmin(admin.ModelAdmin):
     list_display = [
-        'weekday_time_display', 'title', 'equipment_capacities_display',
+        'weekday_time_display', 'title', 'start_date_display', 'end_date_display',
+        'max_capacity_display', 'equipment_capacities_display',
         'total_capacity_display', 'is_active_badge', 'booking_window_display'
     ]
     list_filter = ['is_active', 'weekday', 'location']
@@ -23,8 +24,8 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         ('Boekingsvenster', {
             'fields': ('booking_opens_days_before', 'booking_closes_hours_before')
         }),
-        ('Geldigheid', {
-            'fields': ('start_date', 'end_date', 'is_active')
+        ('Capaciteit & Geldigheid', {
+            'fields': ('max_capacity', 'start_date', 'end_date', 'is_active')
         }),
         ('Tracking', {
             'fields': ('created_by', 'created_at', 'updated_at'),
@@ -41,6 +42,28 @@ class SessionScheduleAdmin(admin.ModelAdmin):
             obj.start_time.strftime('%H:%M')
         )
     weekday_time_display.short_description = 'Dag & Tijd'
+    weekday_time_display.admin_order_field = 'weekday'
+
+    def start_date_display(self, obj):
+        return obj.start_date.strftime('%d-%m-%Y')
+    start_date_display.short_description = 'Startdatum'
+    start_date_display.admin_order_field = 'start_date'
+
+    def end_date_display(self, obj):
+        if obj.end_date:
+            return obj.end_date.strftime('%d-%m-%Y')
+        return format_html('<span style="color: gray;">Onbeperkt</span>')
+    end_date_display.short_description = 'Einddatum'
+    end_date_display.admin_order_field = 'end_date'
+
+    def max_capacity_display(self, obj):
+        if obj.max_capacity is not None:
+            return format_html(
+                '<span style="font-weight: bold;">{}</span>',
+                obj.max_capacity
+            )
+        return format_html('<span style="color: gray;">Auto</span>')
+    max_capacity_display.short_description = 'Max'
 
     def equipment_capacities_display(self, obj):
         capacities = SessionSchedule.get_equipment_capacities()
@@ -206,20 +229,22 @@ class CompanyAdmin(admin.ModelAdmin):
 
     def shareable_link_display(self, obj):
         return format_html(
-            '<code style="background: #000; padding: 2px 8px; border-radius: 4px; '
-            'font-size: 11px;">/bedrijf/{}/</code>',
-            obj.token
+            '<a href="/bedrijf/{}/" target="_blank" style="background: #667eea; color: white; '
+            'padding: 2px 8px; border-radius: 4px; font-size: 11px; text-decoration: none;">'
+            '/bedrijf/{}/</a>',
+            obj.token, obj.token
         )
     shareable_link_display.short_description = 'Link'
 
     def shareable_link_readonly(self, obj):
         if obj.pk:
             return format_html(
-                '<code style="background: #000; padding: 8px 12px; border-radius: 6px; '
-                'font-size: 14px; display: inline-block;">'
-                '/bedrijf/{}/</code>'
+                '<a href="/bedrijf/{}/" target="_blank" '
+                'style="background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; '
+                'font-size: 14px; display: inline-block; text-decoration: none;">'
+                '/bedrijf/{}/</a>'
                 '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
-                'Voeg het domein toe voor de volledige URL, bijv. https://uwdomein.be/bedrijf/{}/'
+                'De link gebruikt automatisch het domein waarmee u deze pagina bekijkt.'
                 '</p>',
                 obj.token, obj.token
             )
@@ -291,10 +316,12 @@ class BusinessEventAdmin(admin.ModelAdmin):
     company_display.short_description = 'Bedrijf'
 
     def event_datetime_display(self, obj):
+        # Use localtime to ensure the displayed time matches the configured time
+        local_dt = timezone.localtime(obj.event_datetime)
         color = '#667eea' if obj.is_in_future else '#6b7280'
         return format_html(
             '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, obj.event_datetime.strftime('%d-%m-%Y %H:%M')
+            color, local_dt.strftime('%d-%m-%Y %H:%M')
         )
     event_datetime_display.short_description = 'Datum & Tijd'
     event_datetime_display.admin_order_field = 'event_datetime'
@@ -318,20 +345,22 @@ class BusinessEventAdmin(admin.ModelAdmin):
 
     def shareable_link_display(self, obj):
         return format_html(
-            '<code style="background: #000; padding: 2px 8px; border-radius: 4px; '
-            'font-size: 11px;">/evenement/{}/</code>',
-            obj.token
+            '<a href="/evenement/{}/" target="_blank" style="background: #667eea; color: white; '
+            'padding: 2px 8px; border-radius: 4px; font-size: 11px; text-decoration: none;">'
+            '/evenement/{}/</a>',
+            obj.token, obj.token
         )
     shareable_link_display.short_description = 'Link'
 
     def shareable_link_readonly(self, obj):
         if obj.pk:
             return format_html(
-                '<code style="background: #000; padding: 8px 12px; border-radius: 6px; '
-                'font-size: 14px; display: inline-block;">'
-                '/evenement/{}/</code>'
+                '<a href="/evenement/{}/" target="_blank" '
+                'style="background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; '
+                'font-size: 14px; display: inline-block; text-decoration: none;">'
+                '/evenement/{}/</a>'
                 '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
-                'Voeg het domein toe, bijv. https://uwdomein.be/evenement/{}/'
+                'De link gebruikt automatisch het domein waarmee u deze pagina bekijkt.'
                 '</p>',
                 obj.token, obj.token
             )

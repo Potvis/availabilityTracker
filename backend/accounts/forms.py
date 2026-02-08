@@ -40,22 +40,65 @@ class UserRegistrationForm(UserCreationForm):
         }),
         help_text='Vereist voor verzekering'
     )
+    phone = forms.CharField(
+        label='Telefoonnummer',
+        required=True,
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '+32 123 45 67 89'
+        })
+    )
+    shoe_size = forms.CharField(
+        label='Schoenmaat',
+        required=True,
+        max_length=10,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Bijv. 42'
+        }),
+        help_text='Uw Europese schoenmaat (nodig voor apparatuurselectie)'
+    )
+    weight = forms.DecimalField(
+        label='Gewicht (kg)',
+        required=True,
+        max_digits=5,
+        decimal_places=2,
+        min_value=30,
+        max_value=300,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Bijv. 75.5',
+            'step': '0.1'
+        }),
+        help_text='Uw gewicht in kilogram (nodig voor juiste veersterkte)'
+    )
 
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name', 'password1', 'password2')
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control'})
-    
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError('Dit e-mailadres is al geregistreerd.')
         return email
-    
+
+    def clean_shoe_size(self):
+        shoe_size = self.cleaned_data.get('shoe_size')
+        try:
+            size_num = int(shoe_size)
+            if size_num < 25 or size_num > 55:
+                raise forms.ValidationError('Voer een geldige schoenmaat in (25-55).')
+        except (ValueError, TypeError):
+            raise forms.ValidationError('Schoenmaat moet een getal zijn.')
+        return shoe_size
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.username = self.cleaned_data['email']  # Use email as username
@@ -65,10 +108,17 @@ class UserRegistrationForm(UserCreationForm):
 
         if commit:
             user.save()
-            # Save date_of_birth to associated member
+            # Save all extra fields to member and profile
             if hasattr(user, 'profile') and user.profile.member:
-                user.profile.member.date_of_birth = self.cleaned_data['date_of_birth']
-                user.profile.member.save()
+                member = user.profile.member
+                member.date_of_birth = self.cleaned_data['date_of_birth']
+                member.phone = self.cleaned_data['phone']
+                member.shoe_size = self.cleaned_data['shoe_size']
+                member.save()
+
+                user.profile.weight = self.cleaned_data['weight']
+                user.profile.save()
+                user.profile.check_profile_complete()
 
         return user
 

@@ -1,10 +1,45 @@
 from django.db import models
 
 
+class SizeType(models.Model):
+    """Admin-configurable shoe size categories for equipment."""
+    name = models.CharField(max_length=50, unique=True, verbose_name='Naam',
+                            help_text='Bijv. S, M, L, XL')
+    description = models.TextField(blank=True, verbose_name='Beschrijving',
+                                   help_text='Bijv. Small (32-36)')
+    min_shoe_size = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Min schoenmaat',
+        help_text='Kleinste schoenmaat voor deze categorie'
+    )
+    max_shoe_size = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Max schoenmaat',
+        help_text='Grootste schoenmaat voor deze categorie'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+
+    class Meta:
+        ordering = ['min_shoe_size', 'name']
+        verbose_name = 'Schoenmaat'
+        verbose_name_plural = 'Schoenmaten'
+
+    def __str__(self):
+        if self.min_shoe_size and self.max_shoe_size:
+            return f"{self.name} ({self.min_shoe_size}-{self.max_shoe_size})"
+        return self.name
+
+
 class SpringType(models.Model):
     """Admin-configurable spring types for equipment."""
     name = models.CharField(max_length=50, unique=True, verbose_name='Naam')
     description = models.TextField(blank=True, verbose_name='Beschrijving')
+    max_weight = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Max gewicht (kg)',
+        help_text='Maximaal gewicht van een gebruiker voor dit type veer'
+    )
     is_active = models.BooleanField(default=True, verbose_name='Actief')
 
     class Meta:
@@ -38,6 +73,7 @@ class Equipment(models.Model):
         ('broken', 'Defect'),
     ]
 
+    # Legacy choices kept for reference; actual sizes now managed via SizeType
     SIZE_CHOICES = [
         ('S', 'Small (32-36)'),
         ('M', 'Medium (37-41)'),
@@ -48,6 +84,14 @@ class Equipment(models.Model):
     name = models.CharField(max_length=100)
     equipment_id = models.CharField(max_length=50, unique=True, help_text="Unieke ID voor dit stuk apparatuur")
     size = models.CharField(max_length=5, choices=SIZE_CHOICES)
+    size_type = models.ForeignKey(
+        SizeType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Schoenmaat',
+        help_text='Schoenmaat categorie (beheerd via Schoenmaten)'
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
     spring_type = models.ForeignKey(
         SpringType,
