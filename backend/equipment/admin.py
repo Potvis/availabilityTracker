@@ -1,14 +1,32 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count
-from .models import Equipment, MaintenanceLog, SpringType, ShellType
+from .models import Equipment, MaintenanceLog, SpringType, ShellType, SizeType
+
+
+@admin.register(SizeType)
+class SizeTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'min_shoe_size', 'max_shoe_size', 'equipment_count', 'description', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
+    def equipment_count(self, obj):
+        count = obj.equipment_set.count()
+        return format_html('<strong>{}</strong> schoenen', count)
+    equipment_count.short_description = 'Gebruikt bij'
 
 
 @admin.register(SpringType)
 class SpringTypeAdmin(admin.ModelAdmin):
-    list_display = ['name', 'equipment_count', 'description', 'is_active']
+    list_display = ['name', 'max_weight_display', 'equipment_count', 'description', 'is_active']
     list_filter = ['is_active']
     search_fields = ['name']
+
+    def max_weight_display(self, obj):
+        if obj.max_weight:
+            return format_html('{}&#8239;kg', obj.max_weight)
+        return format_html('<span style="color: gray;">-</span>')
+    max_weight_display.short_description = 'Max gewicht'
 
     def equipment_count(self, obj):
         count = obj.equipment_set.count()
@@ -36,17 +54,17 @@ class MaintenanceLogInline(admin.TabularInline):
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
     list_display = [
-        'equipment_id', 'name', 'size', 'spring_type_badge',
+        'equipment_id', 'name', 'size', 'size_type', 'spring_type_badge',
         'shell_type_display', 'status_badge', 'last_maintenance', 'next_maintenance'
     ]
-    list_filter = ['status', 'size', 'spring_type', 'shell_type', 'last_maintenance']
+    list_filter = ['status', 'size', 'size_type', 'spring_type', 'shell_type', 'last_maintenance']
     search_fields = ['equipment_id', 'name']
     readonly_fields = ['created_at', 'updated_at']
     inlines = [MaintenanceLogInline]
 
     fieldsets = (
         ('Basis Informatie', {
-            'fields': ('equipment_id', 'name', 'size', 'status')
+            'fields': ('equipment_id', 'name', 'size', 'size_type', 'status')
         }),
         ('Schoen Variaties', {
             'fields': ('spring_type', 'shell_type'),

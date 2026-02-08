@@ -67,6 +67,13 @@ class SessionSchedule(models.Model):
         help_text="Tot welke datum is deze sessie geldig (leeg = onbeperkt)"
     )
 
+    # Capacity
+    max_capacity = models.IntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1)],
+        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op apparatuur)"
+    )
+
     # Status
     is_active = models.BooleanField(
         default=True,
@@ -90,13 +97,20 @@ class SessionSchedule(models.Model):
     def total_capacity(self):
         """Get total capacity across all sizes based on available equipment"""
         from equipment.models import Equipment
-        return Equipment.objects.filter(status='available').count()
+        total = Equipment.objects.filter(status='available').count()
+        if self.max_capacity is not None:
+            return min(total, self.max_capacity)
+        return total
 
-    def get_capacity_for_size(self, size_category):
-        """Get capacity for a specific size category based on available equipment"""
+    def get_capacity_for_size(self, size_category, spring_type_key=None):
+        """Get capacity for a specific size category (and optionally spring type)"""
         from equipment.models import Equipment
-        return Equipment.objects.filter(status='available', size=size_category).count()
-    
+        filters = {'status': 'available', 'size': size_category}
+        if spring_type_key:
+            from equipment.assignment import _spring_filter
+            filters.update(_spring_filter(spring_type_key))
+        return Equipment.objects.filter(**filters).count()
+
     def get_next_occurrence(self, from_date=None):
         """Get the next occurrence of this session schedule"""
         if from_date is None:
@@ -145,12 +159,12 @@ class SessionSchedule(models.Model):
 
         return True
 
-    def get_available_capacity_for_size(self, session_datetime, size_category):
-        """Get available capacity for a specific size category"""
+    def get_available_capacity_for_size(self, session_datetime, size_category, spring_type_key=None):
+        """Get available capacity for a specific size category (and optionally spring type)"""
         from bookings.models import SessionAttendance
 
-        # Get total capacity for this size
-        total_capacity = self.get_capacity_for_size(size_category)
+        # Get total capacity for this size (+ spring type if provided)
+        total_capacity = self.get_capacity_for_size(size_category, spring_type_key)
 
         # Count existing bookings for this specific date/time and size
         booked_count = SessionAttendance.objects.filter(
@@ -159,12 +173,23 @@ class SessionSchedule(models.Model):
             size_category=size_category
         ).count()
 
-        return max(0, total_capacity - booked_count)
+        available = max(0, total_capacity - booked_count)
 
-    def get_available_capacity(self, session_datetime, size_category=None):
+        # Also respect max_capacity if set
+        if self.max_capacity is not None:
+            total_booked = SessionAttendance.objects.filter(
+                session_date=session_datetime,
+                title=self.title,
+            ).count()
+            total_remaining = max(0, self.max_capacity - total_booked)
+            available = min(available, total_remaining)
+
+        return available
+
+    def get_available_capacity(self, session_datetime, size_category=None, spring_type_key=None):
         """Get available capacity for a specific session occurrence"""
         if size_category:
-            return self.get_available_capacity_for_size(session_datetime, size_category)
+            return self.get_available_capacity_for_size(session_datetime, size_category, spring_type_key)
 
         # Return total available across all sizes
         from bookings.models import SessionAttendance
@@ -179,20 +204,33 @@ class SessionSchedule(models.Model):
                 size_category=size
             ).count()
             total_available += max(0, equipment_count - booked)
+
+        if self.max_capacity is not None:
+            total_booked = SessionAttendance.objects.filter(
+                session_date=session_datetime,
+                title=self.title,
+            ).count()
+            total_remaining = max(0, self.max_capacity - total_booked)
+            total_available = min(total_available, total_remaining)
+
         return total_available
 
-    def can_book(self, session_datetime, size_category=None):
+    def can_book(self, session_datetime, size_category=None, spring_type_key=None):
         """Check if a session can be booked"""
         return (
             self.is_active and
             self.is_booking_open(session_datetime) and
-            self.get_available_capacity(session_datetime, size_category) > 0
+            self.get_available_capacity(session_datetime, size_category, spring_type_key) > 0
         )
 
-    def has_capacity_for_size(self, size_category):
-        """Check if there is available equipment for this size"""
+    def has_capacity_for_size(self, size_category, spring_type_key=None):
+        """Check if there is available equipment for this size (and optionally spring type)"""
         from equipment.models import Equipment
-        return Equipment.objects.filter(status='available', size=size_category).exists()
+        filters = {'status': 'available', 'size': size_category}
+        if spring_type_key:
+            from equipment.assignment import _spring_filter
+            filters.update(_spring_filter(spring_type_key))
+        return Equipment.objects.filter(**filters).exists()
 
     @staticmethod
     def get_equipment_capacities():
@@ -335,7 +373,8 @@ class BusinessEvent(models.Model):
 
     def __str__(self):
         prefix = f"{self.company.name} - " if self.company else ""
-        return f"{prefix}{self.title} - {self.event_datetime.strftime('%d-%m-%Y %H:%M')}"
+        local_dt = timezone.localtime(self.event_datetime)
+        return f"{prefix}{self.title} - {local_dt.strftime('%d-%m-%Y %H:%M')}"
  
     @property
     def is_in_future(self):
@@ -345,18 +384,22 @@ class BusinessEvent(models.Model):
     def bookings_count(self):
         return self.event_bookings.count()
 
-    def get_equipment_capacity_for_size(self, size_category):
+    def get_equipment_capacity_for_size(self, size_category, spring_type_key=None):
         """Get capacity for a specific size based on available equipment."""
         from equipment.models import Equipment
-        return Equipment.objects.filter(status='available', size=size_category).count()
+        filters = {'status': 'available', 'size': size_category}
+        if spring_type_key:
+            from equipment.assignment import _spring_filter
+            filters.update(_spring_filter(spring_type_key))
+        return Equipment.objects.filter(**filters).count()
 
     def get_booked_count_for_size(self, size_category):
         """Get number of bookings for a specific size category."""
         return self.event_bookings.filter(size_category=size_category).count()
 
-    def get_available_spots_for_size(self, size_category):
-        """Get available spots for a specific equipment size."""
-        equipment_count = self.get_equipment_capacity_for_size(size_category)
+    def get_available_spots_for_size(self, size_category, spring_type_key=None):
+        """Get available spots for a specific equipment size (and optionally spring type)."""
+        equipment_count = self.get_equipment_capacity_for_size(size_category, spring_type_key)
         booked_count = self.get_booked_count_for_size(size_category)
         available = max(0, equipment_count - booked_count)
         if self.max_capacity is not None:
@@ -380,9 +423,9 @@ class BusinessEvent(models.Model):
         """Check if the event can accept any more bookings."""
         return self.is_active and self.is_in_future and self.get_available_spots() > 0
 
-    def can_book_for_size(self, size_category):
+    def can_book_for_size(self, size_category, spring_type_key=None):
         """Check if the event can accept a booking for a specific size."""
-        return self.is_active and self.is_in_future and self.get_available_spots_for_size(size_category) > 0
+        return self.is_active and self.is_in_future and self.get_available_spots_for_size(size_category, spring_type_key) > 0
  
  
 class BusinessEventBooking(models.Model):
