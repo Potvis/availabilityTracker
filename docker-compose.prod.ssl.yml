@@ -26,11 +26,18 @@ services:
       - SQL_HOST=beta-db
       - SQL_PORT=5432
       - DB_PASSWORD=${DB_PASSWORD}
-      - DATABASE_URL=postgresql://kangoo:${DB_PASSWORD}@db:5432/kangoo
+      - DATABASE_URL=postgresql://kangoo:${DB_PASSWORD}@beta-db:5432/kangoo
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      - EMAIL_BACKEND=${EMAIL_BACKEND}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
     depends_on:
       - beta-db
     restart: unless-stopped
