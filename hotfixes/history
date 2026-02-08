@@ -1,0 +1,287 @@
+    1  # Add Docker's official GPG key:
+    2  sudo apt-get update
+    3  sudo apt-get install ca-certificates curl
+    4  sudo install -m 0755 -d /etc/apt/keyrings
+    5  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    6  sudo chmod a+r /etc/apt/keyrings/docker.asc
+    7  # Add the repository to Apt sources:
+    8  echo   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    9    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+   10  sudo apt-get update
+   11  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+   12  mkdir docker
+   13  cd docker
+   14  ssh-keygen
+   15  cat /root/.ssh/id_ed25519.pub 
+   16  git clone git@github.com:Potvis/availabilityTracker.git
+   17  nano .env.prod
+   18  ll
+   19  mv .env.prod availabilityTracker/.env.prod
+   20  cd availabilityTracker/
+   21  ll
+   22  chmod +x backend/entrypoint.prod.sh
+   23  cd ..
+   24  docker compose docker-compose.prod.yml up --build -d
+   25  docker compose -f docker-compose.prod.yml up --build -d
+   26  ll
+   27  cd availabilityTracker/
+   28  docker compose -f docker-compose.prod.yml up --build -d
+   29  git pull
+   30  docker compose -f docker-compose.prod.yml up --build -d
+   31  docker compose -f docker-compose.prod.yml down
+   32  cp .env.prod .env
+   33  ll
+   34  docker compose -f docker-compose.prod.yml up --build -d
+   35  docker ps
+   36  docker compose down
+   37  git pull
+   38  nano init-letsencrypt.sh 
+   39  nano nginx/nginx.conf 
+   40  mv nginx/nginx.conf nginx/nginx-ssl.conf
+   41  cp nginx/nginx-init.conf nginx/nginx.conf
+   42  docker-compose -f docker-compose.prod.ssl.yml up -d
+   43  docker compose -f docker-compose.prod.ssl.yml up -d
+   44  chmod +x init-letsencrypt.sh 
+   45  ./init-letsencrypt.sh 
+   46  nano init-letsencrypt.sh 
+   47  ./init-letsencrypt.sh 
+   48  # Check if DNS is updated (should show your server IP, not Cloudflare)
+   49  ./init-letsencrypt.sh 
+   50  docker compose -f docker-compose.prod.ssl.yml down
+   51  sed -i 's/yourdomain.com/tracker.jayvandamme.be/g' nginx/nginx-init.conf
+   52  cp nginx/nginx-init.conf nginx/nginx.conf
+   53  mkdir -p certbot/www/.well-known/acme-challenge
+   54  chmod -R 755 certbot/www
+   55  docker compose -f docker-compose.prod.ssl.yml up -d nginx
+   56  curl http://tracker.jayvandamme.be/.well-known/acme-challenge/test.txt
+   57  nano fix-letsencrypt.sh
+   58  chmod +x fix-letsencrypt.sh 
+   59  ./fix-letsencrypt.sh 
+   60  nano /nginx/nginx.conf
+   61  nano nginx/nginx.conf
+   62  mkdir -p certbot/www/.well-known/acme-challenge
+   63  echo "test" > certbot/www/.well-known/acme-challenge/test.txt
+   64  chmod -R 755 certbot/www
+   65  # 4. Rebuild nginx (important!)
+   66  docker compose -f docker-compose.prod.ssl.yml build --no-cache nginx
+   67  # 5. Start only nginx
+   68  docker compose -f docker-compose.prod.ssl.yml up -d nginx
+   69  # 6. Wait a moment
+   70  sleep 3
+   71  # 7. Check the config inside the container
+   72  docker compose -f docker-compose.prod.ssl.yml exec nginx cat /etc/nginx/conf.d/nginx.conf
+   73  # 8. Test the challenge URL
+   74  curl http://tracker.jayvandamme.be/.well-known/acme-challenge/test.txt
+   75  ./init-letsencrypt.sh 
+   76  docker compose -f docker-compose.prod.ssl.yml down
+   77  cp nginx/nginx-ssl.conf nginx/nginx.conf
+   78  sed -i 's/yourdomain.com/tracker.jayvandamme.be/g' nginx/nginx.conf
+   79  docker compose -f docker-compose.prod.ssl.yml build --no-cache nginx
+   80  docker compose -f docker-compose.prod.ssl.yml up -d
+   81  docker compose -f docker-compose.prod.ssl.yml logs nginx
+   82  git push
+   83  git push main
+   84  git push origin 
+   85  ll
+   86  cd nginx
+   87  ll
+   88  git config --global user.email info@jayvandamme.be
+   89  git config --global user.name "Jay Vandamme"
+   90  exit
+   91  cd docker
+   92  ll
+   93  cd availabilityTracker/
+   94  git pull
+   95  docker compose -f docker-compose.prod.ssl.yml up -d
+   96  docker compose -f docker-compose.prod.ssl.yml reload -d
+   97  docker compose -f docker-compose.prod.ssl.yml restart -d
+   98  docker compose -f docker-compose.prod.ssl.yml restart
+   99  docker compose -f docker-compose.prod.ssl.yml down
+  100  docker compose -f docker-compose.prod.ssl.yml build --no-cache
+  101  git pull
+  102  docker compose -f docker-compose.prod.ssl.yml build --no-cache
+  103  docker compose -f docker-compose.prod.ssl.yml up -d
+  104  docker logs web
+  105  docker logs availablitytracker-web-1
+  106  docker ps
+  107  docker logs f96de912307e
+  108  docker ps
+  109  exit
+  110  cd docker
+  111  ll
+  112  cd availabilityTracker/
+  113  docker-compose -f docker-compose.prod.yml exec db pg_dump -U kangoo kangoo > backup_$(date +%Y%m%d_%H%M%S).sql
+  114  docker compose -f docker-compose.prod.yml exec db pg_dump -U kangoo kangoo > backup_$(date +%Y%m%d_%H%M%S).sql
+  115  docker compose -f docker-compose.prod.yml down
+  116  docker compose -f docker-compose.prod.yml build web
+  117  docker compose -f docker-compose.prod.yml up -d
+  118  docker compose -f docker-compose.prod.yml exec web python manage.py migrate equipment
+  119  docker compose -f docker-compose.prod.yml exec web python manage.py migrate cards
+  120  docker compose -f docker-compose.prod.yml exec web python manage.py migrate bookings
+  121  docker compose -f docker-compose.prod.yml down
+  122  git pull
+  123  docker compose -f docker-compose.prod.yml build web
+  124  docker compose -f docker-compose.prod.yml up -d
+  125  docker compose -f docker-compose.prod.yml exec web python manage.py migrate equipment
+  126  docker compose -f docker-compose.prod.yml exec web python manage.py migrate cards
+  127  docker compose -f docker-compose.prod.yml exec web python manage.py migrate bookings
+  128  docker compose -f docker-compose.prod.yml down
+  129  git pull
+  130  docker compose -f docker-compose.prod.yml build web
+  131  docker compose -f docker-compose.prod.yml up -d
+  132  docker compose -f docker-compose.prod.yml exec web python manage.py migrate equipment
+  133  docker compose -f docker-compose.prod.yml exec web python manage.py migrate cards
+  134  docker compose -f docker-compose.prod.yml exec web python manage.py migrate bookings
+  135  docker compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
+  136  docker compose -f docker-compose.prod.yml restart web
+  137  docker compose -f docker-compose.prod.yml logs -f web
+  138  docker compose -f docker-compose.prod.yml restart ng
+  139  docker compose -f docker-compose.prod.yml logs -f web
+  140  docker compose exec web python manage.py migrate
+  141  docker compose -f docker-compose.prod.yml logs -f nginx
+  142  ll
+  143  cd certbot/
+  144  ll
+  145  cd conf/
+  146  ll
+  147  cd ..
+  148  cd availabilityTracker/
+  149  cat docker-compose.
+  150  cat docker-compose.prod.ssl.yml 
+  151  docker compose -f docker-compose.prod.yml down
+  152  docker compose -f docker-compose.prod.ssl.yml  up -d
+  153  docker compose -f docker-compose.prod.yml exec web python manage.py migrate equipment
+  154  docker compose -f docker-compose.prod.yml exec web python manage.py migrate cards
+  155  git pull
+  156  docker compose -f docker-compose.prod.ssl.yml restart web
+  157  docker compose -f docker-compose.prod.ssl.yml down
+  158  docker compose -f docker-compose.prod.ssl.yml build
+  159  docker compose -f docker-compose.prod.ssl.yml up -d
+  160  git pull
+  161  docker compose -f docker-compose.prod.ssl.yml down
+  162  docker compose -f docker-compose.prod.ssl.yml build
+  163  docker compose -f docker-compose.prod.ssl.yml up -d
+  164  docker compose -f docker-compose.prod.ssl.yml down
+  165  git pull
+  166  docker compose -f docker-compose.prod.ssl.yml down
+  167  docker compose -f docker-compose.prod.ssl.yml build
+  168  docker compose -f docker-compose.prod.ssl.yml up -d
+  169  docker compose -f docker-compose.prod.ssl.yml down
+  170  git pull
+  171  docker compose -f docker-compose.prod.ssl.yml build
+  172  docker compose -f docker-compose.prod.ssl.yml up -d
+  173  exit
+  174  z docker
+  175  cd /docker
+  176  ll
+  177  cd docker/
+  178  ll
+  179  cd availabilityTracker/
+  180  ll
+  181  docker-compose exec db pg_dump -U kangoo kangoo > backup.sql
+  182  docker compose exec db pg_dump -U kangoo kangoo > backup.sql
+  183  ll
+  184  git pull
+  185  docker ps
+  186  docker compose up -d
+  187  docker ps
+  188  docker compose down
+  189  docker compose up -d
+  190  docker comopose down
+  191  docker compose down
+  192  docker ps
+  193  docker compose -f docker-compose.prod.ssl.yml down
+  194  docker compose -f docker-compose.prod.ssl.yml up -d
+  195  nano appy_fix.sh
+  196  chmod +x apply_fix.sh
+  197  ll
+  198  mv appy_fix.sh apply_fix.sh
+  199  nano admin_fixed.py
+  200  apply_fix.sh
+  201  ./apply_fix.sh
+  202  chmod +x apply_fix.sh
+  203  ./apply_fix.sh
+  204  docker compose -f docker-compose.prod.ssl.yml exec web grep -c "get_is_past_session" /home/app/web/bookings/admin.py
+  205  docker compose -f docker-compose.prod.ssl.yml exec web python manage.py check
+  206  nano utils_enhanced.py
+  207  nano apply_fix.sh 
+  208  ./apply_fix.sh
+  209  nano utils_enhanced.py
+  210  rm utils_enhanced.py 
+  211  nano utils_enhanced.py
+  212  nano diagnose_timezone.sh
+  213  nano force_rebuild_timezone.sh
+  214  chmod +x diagnose_timezone.sh
+  215  ./diagnose_timezone.sh
+  216  docker compose -f docker-compose.prod.ssl.yml build --no-cache web
+  217  chmod +x force_rebuild_timezone.sh
+  218  ./force_rebuild_timezone.sh
+  219  nano requirements_fixed.txt
+  220  nano fix_timezone_proper.sh
+  221  chmod +x fix_timezone_proper.sh
+  222  ./fix_timezone_proper.sh
+  223  docker compose -f docker-compose.prod.ssl.yml logs web --tail 50
+  224  docker compose -f docker-compose.prod.ssl.yml ps
+  225  nano emergency_fix_gunicorn.sh
+  226  chmod +x emergency_fix_gunicorn.sh
+  227  ./emergency_fix_gunicorn.sh
+  228  ll
+  229  rm admin_fixed.py apply_fix.sh diagnose_timezone.sh emergency_fix_gunicorn.sh fix-letsencrypt.sh fix_timezone_proper.sh force_rebuild_timezone.sh requirements_fixed.txt utils_enhanced.py 
+  230  ll
+  231  git commit
+  232  git commit -a
+  233  git status
+  234  git add backend/bookings/admin.py
+  235  git add backend/bookings/utils.py
+  236  git add backend/requirements.txt
+  237  git add nginx/nginx.conf
+  238  git commit -m "Fix session attendance admin and CSV timezone import issues
+  239  git commit -m "Fix session attendance admin and CSV timezone import issues"
+  240  git commit -m "Fix session attendance admin and CSV timezone import issues
+  241  - Fixed admin form 500 error when adding new session attendance
+  242  - Added timezone-aware datetime parsing for CSV imports
+  243  - Added pytz dependency for Brussels timezone support
+  244  - Improved email extraction logic in CSV import"
+  245  git push origin main
+  246  git pull
+  247  # Remove fix scripts from root directory
+  248  rm -f fix_timezone_proper.sh
+  249  rm -f emergency_fix_gunicorn.sh
+  250  rm -f apply_timezone_fix.sh
+  251  rm -f force_rebuild_timezone.sh
+  252  rm -f diagnose_timezone.sh
+  253  rm -f diagnose_504.sh
+  254  rm -f verify_fix.sh
+  255  rm -f troubleshoot.sh
+  256  rm -f apply_fix.sh
+  257  # Remove temporary files
+  258  rm -f utils_enhanced.py
+  259  rm -f utils_fixed.py
+  260  rm -f admin_fixed.py
+  261  rm -f requirements_fixed.txt
+  262  rm -f requirements_complete.txt
+  263  git add .
+  264  git commit -m "Fix session attendance admin and CSV timezone import issues"
+  265  git push origin main
+  266  # Pull and rebase your changes on top
+  267  git pull origin main --rebase
+  268  # If there are no conflicts, push
+  269  git push origin main
+  270  # Remove backup files from git
+  271  git rm backend/bookings/admin.py.backup.*
+  272  git rm backend/bookings/utils.py.backup.*
+  273  git rm backend/requirements.txt.backup.*
+  274  # Commit the removal
+  275  git commit -m "Remove backup files from repository"
+  276  # Push
+  277  git push origin main
+  278  exit
+  279  cd docker/
+  280  ll
+  281  chmod +x diagnose_cards.sh 
+  282  ./diagnose_cards.sh
+  283  chmod +x fix_cards.sh 
+  284  ./fix_cards.sh 
+  285  ./diagnose_cards.sh
+  286  ./fix_cards.sh 
+  287  history > history

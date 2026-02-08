@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from members.models import Member
@@ -42,10 +42,10 @@ class SessionAttendance(models.Model):
     import_date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
     
-    # Card usage tracking
+    # Card usage tracking - NOW MANUAL ONLY
     card_session_used = models.BooleanField(
         default=False,
-        help_text="Indicates if this session consumed a session from the card"
+        help_text="Sessie is afgerekend (handmatig door admin na ondertekening)"
     )
     
     # Attendance tracking for printing
@@ -90,46 +90,8 @@ class CSVImport(models.Model):
         return f"{self.filename} - {self.imported_at.strftime('%d-%m-%Y %H:%M')}"
 
 
-# Signal handlers for automatic card usage tracking
-@receiver(post_save, sender=SessionAttendance)
-def use_card_session_on_save(sender, instance, created, **kwargs):
-    """
-    Automatically use a session from the card when attendance is linked to a card.
-    Only charges if session date is in the past (already occurred).
-    """
-    # Only process if there's a card linked and we haven't already used it
-    if instance.session_card and not instance.card_session_used:
-        # IMPORTANT: Only charge if session date is in the past
-        if not instance.is_in_past:
-            print(f"⏭ Session {instance} is in the future - not charging card yet")
-            return
-            
-        try:
-            card = instance.session_card
-            
-            # Check if card is valid (active and has sessions remaining)
-            if card.status == 'active' and card.sessions_remaining > 0:
-                # Increment sessions used
-                card.sessions_used += 1
-                
-                # Auto-update status if all sessions are now used
-                if card.sessions_used >= card.total_sessions:
-                    card.status = 'completed'
-                
-                card.save()
-                
-                # Mark that we've consumed a session from this card
-                # Use update() to avoid triggering the signal again
-                SessionAttendance.objects.filter(pk=instance.pk).update(card_session_used=True)
-                
-                trial_msg = " (OEFENBEURT)" if card.is_trial else ""
-                print(f"✓ Card session used{trial_msg}: {card} (now {card.sessions_remaining} remaining)")
-            else:
-                print(f"⚠ Card {card} cannot be used (status: {card.status}, remaining: {card.sessions_remaining})")
-                
-        except Exception as e:
-            print(f"❌ Error using card session: {e}")
-
+# REMOVED: All automatic session charging signals
+# Sessions are now only charged manually by admin after signature
 
 @receiver(pre_delete, sender=SessionAttendance)
 def return_card_session_on_delete(sender, instance, **kwargs):

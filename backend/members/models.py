@@ -49,7 +49,6 @@ class Member(models.Model):
 
     def total_sessions_attended(self):
         """Count total sessions attended by this member"""
-        # Fixed: was importing from sessions, should be bookings
         return self.attendances.count()
 
     def active_cards(self):
