@@ -12,7 +12,10 @@ then
 fi
 
 # Run migrations
-python manage.py migrate --noinput
+if ! python manage.py migrate --noinput; then
+    echo "ERROR: Migrations failed! Skipping superuser creation."
+    exec "$@"
+fi
 
 # Collect static files
 python manage.py collectstatic --noinput --clear
