@@ -1,4 +1,4 @@
-from django.db import migrations
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='sessionattendance',
             name='card_session_used',
-            field=migrations.BooleanField(
+            field=models.BooleanField(
                 default=False,
                 help_text='Sessie is afgerekend (handmatig door admin na ondertekening)'
             ),
