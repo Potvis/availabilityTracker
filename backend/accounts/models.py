@@ -43,6 +43,7 @@ class UserProfile(models.Model):
         required_fields = [
             self.member.first_name,
             self.member.last_name,
+            self.member.date_of_birth,
             self.member.shoe_size,
             self.member.phone,
             self.weight,
@@ -66,6 +67,8 @@ class UserProfile(models.Model):
             missing.append('Voornaam')
         if not self.member.last_name:
             missing.append('Achternaam')
+        if not self.member.date_of_birth:
+            missing.append('Geboortedatum')
         if not self.member.shoe_size:
             missing.append('Schoenmaat')
         if not self.member.phone:
