@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aanwezigheidslijst{% if event %} - {{ event.title }}{% endif %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            padding: 20px;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        .header h2 {
+            font-size: 16px;
+            font-weight: normal;
+            color: #555;
+        }
+
+        .event-info {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .event-info p {
+            margin-bottom: 3px;
+            font-size: 13px;
+        }
+
+        .print-controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .print-controls button {
+            padding: 8px 20px;
+            margin: 0 5px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            background: white;
+        }
+
+        .print-controls button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .equipment-summary {
+            margin-top: 25px;
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            page-break-inside: avoid;
+        }
+
+        .equipment-summary h3 {
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .summary-table {
+            width: auto;
+            min-width: 300px;
+        }
+
+        .summary-table th {
+            background: #764ba2;
+        }
+
+        .summary-table td.count {
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+        }
+
+        @media print {
+            .print-controls {
+                display: none;
+            }
+
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-controls">
+        <button onclick="window.print()">Afdrukken</button>
+        <button onclick="window.close()">Sluiten</button>
+    </div>
+
+    <div class="header">
+        <h1>Jump4Fun - Aanwezigheidslijst</h1>
+        <h2>Bedrijfsevenement</h2>
+    </div>
+
+    {% if event %}
+    <div class="event-info">
+        <p><strong>Evenement:</strong> {{ event.title }}</p>
+        <p><strong>Datum:</strong> {{ event.event_datetime|date:"l j F Y" }}</p>
+        <p><strong>Tijd:</strong> {{ event.event_datetime|date:"H:i" }} ({{ event.duration_minutes }} min)</p>
+        <p><strong>Locatie:</strong> {{ event.location }}</p>
+        {% if event.company %}
+        <p><strong>Bedrijf:</strong> {{ event.company.name }}</p>
+        {% endif %}
+        <p><strong>Aantal inschrijvingen:</strong> {{ total_count }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Table -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40px;">#</th>
+                <th>Naam</th>
+                <th>E-mail</th>
+                <th style="width: 80px;">Schoenmaat</th>
+                <th style="width: 80px;">Gewicht</th>
+                <th style="width: 80px;">Maat</th>
+                <th style="width: 80px;">Veer</th>
+                <th style="width: 100px;">Handtekening</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in bookings %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td><strong>{{ item.booking.full_name }}</strong></td>
+                <td>{{ item.booking.email }}</td>
+                <td>{{ item.booking.shoe_size }}</td>
+                <td>{% if item.booking.weight %}{{ item.booking.weight }} kg{% else %}-{% endif %}</td>
+                <td>{{ item.size_label }}</td>
+                <td>{{ item.spring_label }}</td>
+                <td style="min-width: 100px;"></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" style="text-align: center; color: #999;">
+                    Geen inschrijvingen gevonden
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Equipment Summary -->
+    {% if equipment_summary %}
+    <div class="equipment-summary">
+        <h3>Benodigde Kangoo Boots Overzicht</h3>
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Maat</th>
+                    <th>Veer Type</th>
+                    <th>Aantal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, count in equipment_summary %}
+                <tr>
+                    <td>{{ key.0 }}</td>
+                    <td>{{ key.1 }}</td>
+                    <td class="count">{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Gegenereerd op {{ "now"|date:"d-m-Y H:i" }} | Jump4Fun Beheer</p>
+    </div>
+</body>
+</html>

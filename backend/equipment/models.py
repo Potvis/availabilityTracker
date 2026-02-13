@@ -66,6 +66,43 @@ class ShellType(models.Model):
         return self.name
 
 
+class EquipmentCategory(models.Model):
+    """
+    Admin-defined category for Kangoo Boots combinations.
+    Each category represents a unique combination of size, spring type, and shell type.
+    E.g. "Small groen" = Small + XR6 veren + L schelpen
+    """
+    name = models.CharField(
+        max_length=100, unique=True, verbose_name='Naam',
+        help_text='Bijv. Small groen, Medium oranje'
+    )
+    size_type = models.ForeignKey(
+        SizeType, on_delete=models.CASCADE,
+        verbose_name='Schoenmaat',
+        help_text='Schoenmaat categorie voor deze groep'
+    )
+    spring_type = models.ForeignKey(
+        SpringType, on_delete=models.CASCADE,
+        verbose_name='Soort Veer',
+        help_text='Type veer voor deze groep'
+    )
+    shell_type = models.ForeignKey(
+        ShellType, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Soort Schelp',
+        help_text='Type schelp voor deze groep (optioneel)'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Actief')
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Kangoo Boot Categorie'
+        verbose_name_plural = 'Kangoo Boot Categorieën'
+
+    def __str__(self):
+        return self.name
+
+
 class Equipment(models.Model):
     STATUS_CHOICES = [
         ('available', 'Beschikbaar'),
@@ -73,16 +110,16 @@ class Equipment(models.Model):
         ('broken', 'Defect'),
     ]
 
-    # Legacy choices kept for reference; actual sizes now managed via SizeType
+    # Size choices - actual ranges managed via Schoenmaten (SizeType)
     SIZE_CHOICES = [
-        ('S', 'Small (32-36)'),
-        ('M', 'Medium (37-41)'),
-        ('L', 'Large (42-46)'),
-        ('XL', 'Extra Large (47+)'),
+        ('S', 'Small'),
+        ('M', 'Medium'),
+        ('L', 'Large'),
+        ('XL', 'Extra Large'),
     ]
 
     name = models.CharField(max_length=100)
-    equipment_id = models.CharField(max_length=50, unique=True, help_text="Unieke ID voor dit stuk apparatuur")
+    equipment_id = models.CharField(max_length=50, unique=True, help_text="Unieke ID voor deze Kangoo Boot")
     size = models.CharField(max_length=5, choices=SIZE_CHOICES)
     size_type = models.ForeignKey(
         SizeType,
@@ -109,6 +146,14 @@ class Equipment(models.Model):
         verbose_name='Soort Schelp',
         help_text='Type schelp van de schoen'
     )
+    category = models.ForeignKey(
+        EquipmentCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Categorie',
+        help_text='Kangoo Boot categorie (bijv. Small groen, Medium oranje)'
+    )
     purchase_date = models.DateField(null=True, blank=True)
     last_maintenance = models.DateField(null=True, blank=True)
     next_maintenance = models.DateField(null=True, blank=True)
@@ -118,8 +163,8 @@ class Equipment(models.Model):
 
     class Meta:
         ordering = ['size', 'equipment_id']
-        verbose_name = 'Apparatuur'
-        verbose_name_plural = 'Apparatuur'
+        verbose_name = 'Kangoo Boot'
+        verbose_name_plural = 'Kangoo Boots'
 
     def __str__(self):
         parts = [f"{self.name} ({self.equipment_id})", self.get_size_display()]

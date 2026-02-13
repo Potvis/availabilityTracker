@@ -5,10 +5,10 @@ from datetime import timedelta
 import uuid
 
 SIZE_CATEGORY_CHOICES = [
-    ('S', 'Small (32-36)'),
-    ('M', 'Medium (37-41)'),
-    ('L', 'Large (42-46)'),
-    ('XL', 'Extra Large (47+)'),
+    ('S', 'Small'),
+    ('M', 'Medium'),
+    ('L', 'Large'),
+    ('XL', 'Extra Large'),
 ]
 
 class SessionSchedule(models.Model):
@@ -71,7 +71,7 @@ class SessionSchedule(models.Model):
     max_capacity = models.IntegerField(
         null=True, blank=True,
         validators=[MinValueValidator(1)],
-        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op apparatuur)"
+        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op beschikbare Kangoo Boots)"
     )
 
     # Status
@@ -103,13 +103,16 @@ class SessionSchedule(models.Model):
         return total
 
     def get_capacity_for_size(self, size_category, spring_type_key=None):
-        """Get capacity for a specific size category (and optionally spring type)"""
+        """Get capacity for a specific size category (and optionally spring type).
+        Equipment without spring_type set is always included (available for any type)."""
+        from django.db.models import Q
         from equipment.models import Equipment
-        filters = {'status': 'available', 'size': size_category}
+        base_q = Q(status='available', size=size_category)
         if spring_type_key:
             from equipment.assignment import _spring_filter
-            filters.update(_spring_filter(spring_type_key))
-        return Equipment.objects.filter(**filters).count()
+            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
+            return Equipment.objects.filter(base_q & spring_q).count()
+        return Equipment.objects.filter(base_q).count()
 
     def get_next_occurrence(self, from_date=None):
         """Get the next occurrence of this session schedule"""
@@ -224,13 +227,16 @@ class SessionSchedule(models.Model):
         )
 
     def has_capacity_for_size(self, size_category, spring_type_key=None):
-        """Check if there is available equipment for this size (and optionally spring type)"""
+        """Check if there is available equipment for this size (and optionally spring type).
+        Equipment without spring_type set is always included."""
+        from django.db.models import Q
         from equipment.models import Equipment
-        filters = {'status': 'available', 'size': size_category}
+        base_q = Q(status='available', size=size_category)
         if spring_type_key:
             from equipment.assignment import _spring_filter
-            filters.update(_spring_filter(spring_type_key))
-        return Equipment.objects.filter(**filters).exists()
+            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
+            return Equipment.objects.filter(base_q & spring_q).exists()
+        return Equipment.objects.filter(base_q).exists()
 
     @staticmethod
     def get_equipment_capacities():
@@ -357,7 +363,7 @@ class BusinessEvent(models.Model):
     max_capacity = models.IntegerField(
         null=True, blank=True,
         validators=[MinValueValidator(1)],
-        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op apparatuur)"
+        help_text="Maximaal aantal deelnemers (leeg = gebaseerd op beschikbare Kangoo Boots)"
     )
 
     is_active = models.BooleanField(default=True, help_text="Is dit evenement nog open voor boekingen")
@@ -385,13 +391,16 @@ class BusinessEvent(models.Model):
         return self.event_bookings.count()
 
     def get_equipment_capacity_for_size(self, size_category, spring_type_key=None):
-        """Get capacity for a specific size based on available equipment."""
+        """Get capacity for a specific size based on available equipment.
+        Equipment without spring_type set is always included (available for any type)."""
+        from django.db.models import Q
         from equipment.models import Equipment
-        filters = {'status': 'available', 'size': size_category}
+        base_q = Q(status='available', size=size_category)
         if spring_type_key:
             from equipment.assignment import _spring_filter
-            filters.update(_spring_filter(spring_type_key))
-        return Equipment.objects.filter(**filters).count()
+            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
+            return Equipment.objects.filter(base_q & spring_q).count()
+        return Equipment.objects.filter(base_q).count()
 
     def get_booked_count_for_size(self, size_category):
         """Get number of bookings for a specific size category."""
