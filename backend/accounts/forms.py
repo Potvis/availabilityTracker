@@ -57,7 +57,7 @@ class UserRegistrationForm(UserCreationForm):
             'class': 'form-control',
             'placeholder': 'Bijv. 42'
         }),
-        help_text='Uw Europese schoenmaat (nodig voor apparatuurselectie)'
+        help_text='Uw Europese schoenmaat (nodig voor selectie Kangoo Boots)'
     )
     weight = forms.DecimalField(
         label='Gewicht (kg)',
@@ -190,7 +190,7 @@ class ProfileCompletionForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'Bijv. 42'
         }),
-        help_text='Uw Europese schoenmaat (nodig voor apparatuurselectie)'
+        help_text='Uw Europese schoenmaat (nodig voor selectie Kangoo Boots)'
     )
     
     # UserProfile fields

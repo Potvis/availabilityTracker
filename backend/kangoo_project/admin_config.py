@@ -4,7 +4,7 @@ Custom admin layout configuration for Jump4Fun.
 Reorganizes the default Django admin sidebar into logical groups:
 - Leden (Members)
 - Sessies & Boekingen (Sessions & Bookings + Session Cards)
-- Apparatuur (Equipment + Maintenance)
+- Kangoo Boots (Equipment + Maintenance + Categories)
 - Bedrijven (Companies, Business Events, Business Event Bookings)
 - Instellingen (Settings: Spring/Shell Types, Card Types, CSV Imports, Auth)
 """
@@ -22,8 +22,9 @@ ADMIN_GROUPS = [
         ('bookings', 'sessionattendance'),
         ('cards', 'sessioncard'),
     ]),
-    ('Apparatuur', [
+    ('Kangoo Boots', [
         ('equipment', 'equipment'),
+        ('equipment', 'equipmentcategory'),
         ('equipment', 'maintenancelog'),
     ]),
     ('Bedrijven', [

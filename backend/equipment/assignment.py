@@ -173,11 +173,11 @@ def find_available_equipment(shoe_size_str, weight, session_datetime=None, membe
         return None
 
     # Find available equipment matching criteria
-    available_equipment = Equipment.objects.filter(
-        size=size_category,
-        status='available',
-        **_spring_filter(spring_type),
-    )
+    # Include equipment without spring_type (not yet configured)
+    from django.db.models import Q
+    base_q = Q(size=size_category, status='available')
+    spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
+    available_equipment = Equipment.objects.filter(base_q & spring_q)
 
     return available_equipment
 
@@ -229,7 +229,7 @@ def assign_equipment(member, session_datetime=None):
             'equipment': None,
             'size_category': size_category,
             'spring_type': spring_type,
-            'message': f'Geen beschikbare apparatuur voor maat {size_category} met {spring_desc} veer'
+            'message': f'Geen beschikbare Kangoo Boots voor maat {size_category} met {spring_desc} veer'
         }
 
     # Return first available equipment
@@ -240,7 +240,7 @@ def assign_equipment(member, session_datetime=None):
         'equipment': equipment,
         'size_category': size_category,
         'spring_type': spring_type,
-        'message': f'Apparatuur toegewezen: {equipment.equipment_id}'
+        'message': f'Kangoo Boots toegewezen: {equipment.equipment_id}'
     }
 
 
@@ -333,11 +333,10 @@ def check_equipment_availability(size_category, spring_type, count=1):
             - count: int (number available)
             - message: str
     """
-    available_equipment = Equipment.objects.filter(
-        size=size_category,
-        status='available',
-        **_spring_filter(spring_type),
-    )
+    from django.db.models import Q
+    base_q = Q(size=size_category, status='available')
+    spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
+    available_equipment = Equipment.objects.filter(base_q & spring_q)
 
     available_count = available_equipment.count()
 

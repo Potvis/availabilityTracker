@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geen Kangoo Boots beschikbaar - Jump4Fun</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .info-box {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        .info-box strong {
+            color: #333;
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <h1>Jump4Fun</h1>
+                <p>Bedrijfsevenement</p>
+            </div>
+
+            <div class="icon">&#128694;</div>
+            <div class="title">Momenteel geen Kangoo Boots beschikbaar</div>
+            <div class="message">
+                Helaas zijn er momenteel geen Kangoo Boots beschikbaar voor uw schoenmaat en gewicht.
+                Geen zorgen! Klik op de knop hieronder en we nemen zo snel mogelijk contact met u op om een oplossing te zoeken.
+            </div>
+
+            <div class="info-box">
+                <strong>Uw gegevens:</strong><br>
+                Naam: {{ guest_name }}<br>
+                Schoenmaat: {{ shoe_size }}<br>
+                Gewicht: {{ weight }} kg
+            </div>
+
+            <form method="post" action="{% url 'contact_no_equipment' %}">
+                {% csrf_token %}
+                <input type="hidden" name="guest_name" value="{{ guest_name }}">
+                <input type="hidden" name="guest_email" value="{{ guest_email }}">
+                <input type="hidden" name="shoe_size" value="{{ shoe_size }}">
+                <input type="hidden" name="weight" value="{{ weight }}">
+                <input type="hidden" name="event_title" value="{{ event.title }}">
+                <button type="submit" class="btn btn-primary">
+                    Contacteer Jump4Fun
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

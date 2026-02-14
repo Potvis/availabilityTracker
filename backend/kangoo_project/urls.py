@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
-from bookings.event_views import event_booking_page, event_confirmation, company_events_page
+from bookings.event_views import event_booking_page, event_confirmation, company_events_page, contact_no_equipment
 from .admin_config import configure_admin
 
 configure_admin()
@@ -27,6 +27,9 @@ urlpatterns = [
 
     # Company events (public, no login required) - one link per company, multiple events
     path('bedrijf/<uuid:token>/', company_events_page, name='company_events'),
+
+    # Contact request when no equipment available (public)
+    path('contact/geen-schoenen/', contact_no_equipment, name='contact_no_equipment'),
 
     path('', root_redirect, name='root'),
 ]

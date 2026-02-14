@@ -338,7 +338,7 @@
         <!-- Equipment summary per size/spring -->
         {% if size_spring_summary %}
         <div class="equipment-summary">
-            <h3>Benodigde Apparatuur Overzicht</h3>
+            <h3>Benodigde Kangoo Boots Overzicht</h3>
             <table>
                 <thead>
                     <tr>
@@ -364,7 +364,9 @@
         </div>
         {% endif %}
     </div>
-    
+
+    <!-- ==================== USER VIEW ==================== -->
+    <div id="user-view" style="display: none;">
     <div class="terms-box">
         <h3>⚠️ BELANGRIJK - Lees voor ondertekening</h3>
         <p>
@@ -437,8 +439,9 @@
             {% endfor %}
         </tbody>
     </table>
-    
-    <div class="footer">
+    </div>
+
+    <div id="footer-note" class="footer" style="display: none;">
         <p>Gegenereerd op {{ "now"|date:"d-m-Y H:i" }} | Jump4Fun Beheer</p>
         <p style="margin-top: 10px; font-style: italic;">
             Na het ondertekenen moet de administrator handmatig de sessies afrekenen in het systeem.

@@ -43,15 +43,6 @@ class BusinessEventBookingForm(forms.ModelForm):
             'placeholder': 'uw.email@voorbeeld.be'
         })
     )
-    phone = forms.CharField(
-        label='Telefoonnummer',
-        max_length=20,
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': '+32 123 45 67 89'
-        })
-    )
     shoe_size = forms.CharField(
         label='Schoenmaat',
         max_length=10,
@@ -59,7 +50,7 @@ class BusinessEventBookingForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'Bijv. 42'
         }),
-        help_text='Uw Europese schoenmaat (nodig voor apparatuurselectie)'
+        help_text='Uw Europese schoenmaat (nodig voor selectie Kangoo Boots)'
     )
     weight = forms.DecimalField(
         label='Gewicht (kg)',
@@ -104,7 +95,7 @@ class BusinessEventBookingForm(forms.ModelForm):
 
     class Meta:
         model = BusinessEventBooking
-        fields = ['first_name', 'last_name', 'email', 'phone', 'shoe_size', 'weight']
+        fields = ['first_name', 'last_name', 'email', 'shoe_size', 'weight']
 
     def clean_shoe_size(self):
         shoe_size = self.cleaned_data.get('shoe_size')

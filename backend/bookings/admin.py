@@ -1,6 +1,8 @@
 # Import schedule admin (auto-registers via decorators)
 from . import schedule_admin
 
+from collections import Counter
+
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import path
@@ -11,6 +13,7 @@ from django.template.loader import render_to_string
 from .models import SessionAttendance, CSVImport
 from .forms import CSVImportForm
 from .utils import process_csv_import
+from equipment.assignment import get_spring_type_from_weight
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
