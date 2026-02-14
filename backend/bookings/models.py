@@ -6,10 +6,10 @@ from members.models import Member
 from cards.models import SessionCard
 
 SIZE_CATEGORY_CHOICES = [
-    ('S', 'Small (32-36)'),
-    ('M', 'Medium (37-41)'),
-    ('L', 'Large (42-46)'),
-    ('XL', 'Extra Large (47+)'),
+    ('S', 'Small'),
+    ('M', 'Medium'),
+    ('L', 'Large'),
+    ('XL', 'Extra Large'),
 ]
 
 

@@ -16,7 +16,7 @@ class UserProfile(models.Model):
         null=True, 
         blank=True,
         validators=[MinValueValidator(30), MaxValueValidator(300)],
-        help_text="Gewicht in kg (nodig voor apparatuurselectie)"
+        help_text="Gewicht in kg (nodig voor selectie Kangoo Boots)"
     )
     
     # Profile completion tracking

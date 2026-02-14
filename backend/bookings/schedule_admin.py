@@ -1,7 +1,11 @@
+from collections import Counter
+
 from django.contrib import admin
+from django.shortcuts import render
 from django.utils.html import format_html
 from django.utils import timezone
 from .schedule_models import SessionSchedule, BusinessEvent, BusinessEventBooking, Company
+from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight
 
 
 @admin.register(SessionSchedule)
@@ -69,7 +73,7 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         capacities = SessionSchedule.get_equipment_capacities()
 
         if sum(capacities.values()) == 0:
-            return format_html('<span style="color: gray;">Geen apparatuur beschikbaar</span>')
+            return format_html('<span style="color: gray;">Geen Kangoo Boots beschikbaar</span>')
 
         colors = {
             'S': '#2196F3',
@@ -92,7 +96,7 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         return format_html(' '.join(badges)) if badges else format_html(
             '<span style="color: gray;">Geen capaciteit</span>'
         )
-    equipment_capacities_display.short_description = 'Apparatuur'
+    equipment_capacities_display.short_description = 'Kangoo Boots'
 
     def total_capacity_display(self, obj):
         total = obj.total_capacity
@@ -238,18 +242,41 @@ class CompanyAdmin(admin.ModelAdmin):
 
     def shareable_link_readonly(self, obj):
         if obj.pk:
+            # Get active events for this company
+            events = obj.get_active_events()
+            events_html = ''
+            for event in events:
+                event_date = event.event_datetime.strftime('%d/%m/%Y %H:%M') if event.event_datetime else ''
+                events_html += (
+                    f'<div style="background: #f9fafb; padding: 8px 12px; border-radius: 6px; '
+                    f'margin-bottom: 5px; font-size: 13px;">'
+                    f'<strong>{event.title}</strong> - {event_date}'
+                    f'</div>'
+                )
+
             return format_html(
+                '<div style="margin-bottom: 10px;">'
                 '<a href="/bedrijf/{}/" target="_blank" '
-                'style="background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; '
-                'font-size: 14px; display: inline-block; text-decoration: none;">'
-                '/bedrijf/{}/</a>'
-                '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
-                'De link gebruikt automatisch het domein waarmee u deze pagina bekijkt.'
-                '</p>',
-                obj.token, obj.token
+                'style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
+                'color: white; padding: 12px 24px; border-radius: 10px; '
+                'font-size: 16px; font-weight: 600; display: inline-block; text-decoration: none; '
+                'box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">'
+                'Inschrijven Kangoo Jumps {}</a>'
+                '</div>'
+                '<div style="margin-top: 8px; margin-bottom: 10px;">'
+                '<input type="text" value="/bedrijf/{}/" readonly '
+                'style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; '
+                'font-size: 13px; width: 100%; max-width: 500px; color: #4b5563;" '
+                'onclick="this.select(); document.execCommand(\'copy\');">'
+                '<span style="font-size: 12px; color: #6b7280; margin-left: 5px;">'
+                'Klik om te kopieren (plak het domein ervoor)</span>'
+                '</div>'
+                '{}',
+                obj.token, obj.name, obj.token,
+                events_html
             )
         return '-'
-    shareable_link_readonly.short_description = 'Volledige Link'
+    shareable_link_readonly.short_description = 'Deelbare Link'
 
     def is_active_badge(self, obj):
         if obj.is_active:
@@ -269,7 +296,7 @@ class BusinessEventBookingInline(admin.TabularInline):
     extra = 0
     readonly_fields = ['booked_at', 'size_category']
     fields = [
-        'first_name', 'last_name', 'email', 'phone',
+        'first_name', 'last_name', 'email',
         'shoe_size', 'weight', 'size_category', 'member', 'booked_at'
     ]
 
@@ -354,18 +381,30 @@ class BusinessEventAdmin(admin.ModelAdmin):
 
     def shareable_link_readonly(self, obj):
         if obj.pk:
+            event_date = obj.event_datetime.strftime('%d/%m/%Y') if obj.event_datetime else ''
+            company_name = obj.company.name if obj.company else ''
+            button_text = f'Inschrijven Kangoo Jumps {company_name} {event_date}'.strip()
             return format_html(
+                '<div style="margin-bottom: 10px;">'
                 '<a href="/evenement/{}/" target="_blank" '
-                'style="background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; '
-                'font-size: 14px; display: inline-block; text-decoration: none;">'
-                '/evenement/{}/</a>'
-                '<p style="margin-top: 5px; color: #6b7280; font-size: 13px;">'
-                'De link gebruikt automatisch het domein waarmee u deze pagina bekijkt.'
-                '</p>',
-                obj.token, obj.token
+                'style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
+                'color: white; padding: 12px 24px; border-radius: 10px; '
+                'font-size: 16px; font-weight: 600; display: inline-block; text-decoration: none; '
+                'box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">'
+                '{}</a>'
+                '</div>'
+                '<div style="margin-top: 8px;">'
+                '<input type="text" value="/evenement/{}/" readonly '
+                'style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; '
+                'font-size: 13px; width: 100%; max-width: 500px; color: #4b5563;" '
+                'onclick="this.select(); document.execCommand(\'copy\');">'
+                '<span style="font-size: 12px; color: #6b7280; margin-left: 5px;">'
+                'Klik om te kopieren (plak het domein ervoor)</span>'
+                '</div>',
+                obj.token, button_text, obj.token
             )
         return '-'
-    shareable_link_readonly.short_description = 'Volledige Link'
+    shareable_link_readonly.short_description = 'Deelbare Link'
 
     def is_active_badge(self, obj):
         if obj.is_active and obj.is_in_future:
@@ -405,7 +444,7 @@ class BusinessEventAdmin(admin.ModelAdmin):
 @admin.register(BusinessEventBooking)
 class BusinessEventBookingAdmin(admin.ModelAdmin):
     list_display = [
-        'guest_name', 'event_title', 'email', 'phone',
+        'guest_name', 'event_title', 'email',
         'shoe_size', 'weight', 'size_category', 'has_account_badge', 'booked_at'
     ]
     list_filter = ['event', 'event__company', 'size_category', 'booked_at']
@@ -421,9 +460,9 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
             'fields': ('event',)
         }),
         ('Gast Informatie', {
-            'fields': ('first_name', 'last_name', 'email', 'phone')
+            'fields': ('first_name', 'last_name', 'email')
         }),
-        ('Apparatuur', {
+        ('Kangoo Boots', {
             'fields': ('shoe_size', 'weight', 'size_category')
         }),
         ('Account', {
@@ -456,3 +495,46 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
             'border-radius: 3px; font-size: 11px;">Gast</span>'
         )
     has_account_badge.short_description = 'Account'
+
+    actions = ['print_attendance_list']
+
+    def print_attendance_list(self, request, queryset):
+        """Print attendance list with shoe overview for selected business event bookings."""
+        bookings = queryset.select_related('event', 'member').order_by('last_name', 'first_name')
+
+        # Build booking data with equipment info
+        booking_data = []
+        size_spring_counter = Counter()
+
+        for booking in bookings:
+            size_category = booking.size_category or get_size_category_from_shoe_size(booking.shoe_size)
+            spring_type = get_spring_type_from_weight(booking.weight) if booking.weight else 'standard'
+
+            # Build display label
+            size_label = dict(BusinessEventBooking._meta.get_field('size_category').choices).get(
+                size_category, size_category
+            ) if size_category else '-'
+            spring_label = spring_type.capitalize() if spring_type else '-'
+
+            if size_category:
+                size_spring_counter[(size_label, spring_label)] += 1
+
+            booking_data.append({
+                'booking': booking,
+                'size_label': size_label,
+                'spring_label': spring_label,
+            })
+
+        # Sort equipment summary
+        equipment_summary = sorted(size_spring_counter.items(), key=lambda x: x[0][0])
+
+        # Determine event info from first booking
+        event = bookings.first().event if bookings.exists() else None
+
+        return render(request, 'admin/bookings/business_event_print.html', {
+            'bookings': booking_data,
+            'equipment_summary': equipment_summary,
+            'event': event,
+            'total_count': bookings.count(),
+        })
+    print_attendance_list.short_description = 'Aanwezigheidslijst afdrukken'

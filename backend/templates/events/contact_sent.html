@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ event.title }} - Jump4Fun</title>
+    <title>Bericht verzonden - Jump4Fun</title>
     <style>
         * {
             margin: 0;
@@ -45,31 +45,21 @@
             margin-bottom: 30px;
         }
 
-        .closed-icon {
+        .icon {
             font-size: 64px;
             margin-bottom: 15px;
         }
 
-        .closed-title {
+        .title {
             font-size: 22px;
             font-weight: 700;
-            color: #333;
+            color: #065f46;
             margin-bottom: 10px;
         }
 
-        .closed-message {
+        .message {
             color: #6b7280;
             line-height: 1.6;
-            margin-bottom: 25px;
-        }
-
-        .event-name {
-            background: #f9fafb;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            color: #333;
         }
     </style>
 </head>
@@ -81,27 +71,13 @@
                 <p>Bedrijfsevenement</p>
             </div>
 
-            <div class="event-name">{{ event.title }}</div>
-
-            {% if reason == 'past' %}
-            <div class="closed-icon">&#8987;</div>
-            <div class="closed-title">Evenement is verlopen</div>
-            <div class="closed-message">
-                Dit evenement heeft plaatsgevonden op {{ event.event_datetime|date:"j F Y" }} en is niet meer beschikbaar voor inschrijving.
+            <div class="icon">&#9989;</div>
+            <div class="title">Bericht verzonden!</div>
+            <div class="message">
+                Bedankt {{ guest_name }}! Uw aanvraag is verstuurd.
+                We nemen zo snel mogelijk contact met u op om een oplossing te zoeken
+                {% if event_title %}voor <strong>{{ event_title }}</strong>{% endif %}.
             </div>
-            {% elif reason == 'full' %}
-            <div class="closed-icon">&#128532;</div>
-            <div class="closed-title">Geen Kangoo Boots meer beschikbaar</div>
-            <div class="closed-message">
-                Alle Kangoo Boots voor dit evenement zijn gereserveerd. Neem contact op met de organisator als u op een wachtlijst wilt.
-            </div>
-            {% elif reason == 'inactive' %}
-            <div class="closed-icon">&#128275;</div>
-            <div class="closed-title">Inschrijving gesloten</div>
-            <div class="closed-message">
-                De inschrijving voor dit evenement is momenteel gesloten. Neem contact op met de organisator voor meer informatie.
-            </div>
-            {% endif %}
         </div>
     </div>
 </body>

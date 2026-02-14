@@ -339,17 +339,6 @@
                     {% endif %}
                 </div>
 
-                <div class="form-group">
-                    <label for="id_phone">Telefoonnummer</label>
-                    <input type="text" name="phone" id="id_phone"
-                           class="form-control {% if form.phone.errors %}error{% endif %}"
-                           value="{{ form.phone.value|default:'' }}"
-                           placeholder="+32 123 45 67 89">
-                    {% if form.phone.errors %}
-                    <div class="error-text">{{ form.phone.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
                 <div class="row">
                     <div class="form-group">
                         <label for="id_shoe_size">Schoenmaat *</label>

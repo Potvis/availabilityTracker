@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count
-from .models import Equipment, MaintenanceLog, SpringType, ShellType, SizeType
+from .models import Equipment, EquipmentCategory, MaintenanceLog, SpringType, ShellType, SizeType
 
 
 @admin.register(SizeType)
@@ -46,6 +46,28 @@ class ShellTypeAdmin(admin.ModelAdmin):
     equipment_count.short_description = 'Gebruikt bij'
 
 
+@admin.register(EquipmentCategory)
+class EquipmentCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'size_type', 'spring_type', 'shell_type', 'equipment_count', 'is_active']
+    list_filter = ['is_active', 'size_type', 'spring_type', 'shell_type']
+    search_fields = ['name']
+
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'size_type', 'spring_type', 'shell_type', 'is_active'),
+            'description': (
+                'Maak categorieën aan voor combinaties van schoenmaat, veer en schelp. '
+                'Bijv. "Small groen" = Small + XR6 veren + L schelpen.'
+            )
+        }),
+    )
+
+    def equipment_count(self, obj):
+        count = obj.equipment_set.count()
+        return format_html('<strong>{}</strong> schoenen', count)
+    equipment_count.short_description = 'Aantal schoenen'
+
+
 class MaintenanceLogInline(admin.TabularInline):
     model = MaintenanceLog
     extra = 0
@@ -54,17 +76,17 @@ class MaintenanceLogInline(admin.TabularInline):
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
     list_display = [
-        'equipment_id', 'name', 'size', 'size_type', 'spring_type_badge',
+        'equipment_id', 'name', 'size', 'size_type', 'category_display', 'spring_type_badge',
         'shell_type_display', 'status_badge', 'last_maintenance', 'next_maintenance'
     ]
-    list_filter = ['status', 'size', 'size_type', 'spring_type', 'shell_type', 'last_maintenance']
+    list_filter = ['status', 'size', 'size_type', 'category', 'spring_type', 'shell_type', 'last_maintenance']
     search_fields = ['equipment_id', 'name']
     readonly_fields = ['created_at', 'updated_at']
     inlines = [MaintenanceLogInline]
 
     fieldsets = (
         ('Basis Informatie', {
-            'fields': ('equipment_id', 'name', 'size', 'size_type', 'status')
+            'fields': ('equipment_id', 'name', 'size', 'size_type', 'category', 'status')
         }),
         ('Schoen Variaties', {
             'fields': ('spring_type', 'shell_type'),
@@ -78,6 +100,16 @@ class EquipmentAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def category_display(self, obj):
+        if obj.category:
+            return format_html(
+                '<span style="background-color: #4CAF50; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold;">{}</span>',
+                obj.category.name
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    category_display.short_description = 'Categorie'
 
     def shell_type_display(self, obj):
         if obj.shell_type:

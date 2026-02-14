@@ -136,14 +136,12 @@ def event_booking_page(request, token):
 
             # Check size-specific equipment availability (including spring type)
             if not size_category or not event.can_book_for_size(size_category, spring_type_key):
-                messages.error(
-                    request,
-                    'Er is geen apparatuur meer beschikbaar voor uw schoenmaat. '
-                    'Neem contact op met de organisator.'
-                )
-                return render(request, 'events/event_booking.html', {
+                return render(request, 'events/event_no_equipment.html', {
                     'event': event,
-                    'form': form,
+                    'guest_name': f"{form.cleaned_data['first_name']} {form.cleaned_data['last_name']}",
+                    'guest_email': form.cleaned_data['email'],
+                    'shoe_size': form.cleaned_data['shoe_size'],
+                    'weight': form.cleaned_data['weight'],
                 })
 
             # Create the booking
@@ -316,16 +314,13 @@ def company_events_page(request, token):
             spring_type_key = get_spring_type_from_weight(form.cleaned_data.get('weight'))
 
             if not size_category or not selected_event.can_book_for_size(size_category, spring_type_key):
-                messages.error(
-                    request,
-                    'Er is geen apparatuur meer beschikbaar voor uw schoenmaat.'
-                )
-                return render(request, 'events/company_events.html', {
+                return render(request, 'events/event_no_equipment.html', {
+                    'event': selected_event,
                     'company': company,
-                    'events': active_events,
-                    'selected_event': selected_event,
-                    'form': form,
-                    'booked_event_ids': booked_event_ids,
+                    'guest_name': f"{form.cleaned_data['first_name']} {form.cleaned_data['last_name']}",
+                    'guest_email': form.cleaned_data['email'],
+                    'shoe_size': form.cleaned_data['shoe_size'],
+                    'weight': form.cleaned_data['weight'],
                 })
 
             booking = form.save(commit=False)
@@ -386,4 +381,47 @@ def company_events_page(request, token):
         'form': form,
         'booked_event_ids': booked_event_ids,
         'allow_multiple': company.allow_multiple_bookings,
+    })
+
+
+def contact_no_equipment(request):
+    """
+    Handle 'contact Jump4Fun' button when no Kangoo Boots are available.
+    Sends an email to admin with the guest's info so they can follow up.
+    """
+    if request.method != 'POST':
+        return redirect('root')
+
+    guest_name = request.POST.get('guest_name', '')
+    guest_email = request.POST.get('guest_email', '')
+    shoe_size = request.POST.get('shoe_size', '')
+    weight = request.POST.get('weight', '')
+    event_title = request.POST.get('event_title', '')
+
+    subject = f'Kangoo Boots aanvraag: {guest_name}'
+    body = (
+        f'Er is een aanvraag binnengekomen van iemand waarvoor er momenteel '
+        f'geen Kangoo Boots beschikbaar zijn.\n\n'
+        f'Naam: {guest_name}\n'
+        f'E-mail: {guest_email}\n'
+        f'Schoenmaat: {shoe_size}\n'
+        f'Gewicht: {weight} kg\n'
+        f'Evenement: {event_title}\n\n'
+        f'Neem contact op met deze persoon om een oplossing te zoeken.'
+    )
+
+    try:
+        email = EmailMessage(
+            subject=subject,
+            body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[settings.DEFAULT_FROM_EMAIL],  # Send to admin
+        )
+        email.send(fail_silently=False)
+    except Exception as e:
+        logger.warning(f'Failed to send equipment contact email: {e}')
+
+    return render(request, 'events/contact_sent.html', {
+        'guest_name': guest_name,
+        'event_title': event_title,
     })
