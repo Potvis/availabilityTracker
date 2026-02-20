@@ -174,10 +174,13 @@ def find_available_equipment(shoe_size_str, weight, session_datetime=None, membe
 
     # Find available equipment matching criteria
     # Include equipment without spring_type (not yet configured)
+    # Match via both size CharField and size_type FK to handle
+    # admin-configured SizeType names that differ from Equipment.SIZE_CHOICES
     from django.db.models import Q
-    base_q = Q(size=size_category, status='available')
+    size_q = Q(size=size_category) | Q(size_type__name=size_category)
+    base_q = Q(status='available') & size_q
     spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
-    available_equipment = Equipment.objects.filter(base_q & spring_q)
+    available_equipment = Equipment.objects.filter(base_q & spring_q).distinct()
 
     return available_equipment
 
@@ -397,9 +400,10 @@ def check_equipment_availability(size_category, spring_type, count=1):
             - message: str
     """
     from django.db.models import Q
-    base_q = Q(size=size_category, status='available')
+    size_q = Q(size=size_category) | Q(size_type__name=size_category)
+    base_q = Q(status='available') & size_q
     spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
-    available_equipment = Equipment.objects.filter(base_q & spring_q)
+    available_equipment = Equipment.objects.filter(base_q & spring_q).distinct()
 
     available_count = available_equipment.count()
 
