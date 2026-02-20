@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from .models import SessionAttendance, CSVImport
 from .forms import CSVImportForm
 from .utils import process_csv_import
-from equipment.assignment import get_spring_type_from_weight
+from equipment.assignment import get_spring_type_from_weight, get_category_for_size_and_spring
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
@@ -211,32 +211,27 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
 
         attendances.sort(key=get_sort_key)
 
-        # Add equipment info per attendance and build summary
-        size_spring_counter = Counter()
+        # Add equipment info per attendance and build category summary
+        category_counter = Counter()
         for att in attendances:
             weight = None
             if hasattr(att.member, 'user_profile') and att.member.user_profile:
                 weight = att.member.user_profile.weight
             spring_type = get_spring_type_from_weight(weight)
-            spring_display = 'HD' if spring_type == 'hd' else 'Standaard'
-            att.equipment_info = {
-                'spring_type': spring_type,
-                'spring_display': spring_display,
-            }
             size_cat = att.size_category or '?'
-            size_spring_counter[(size_cat, spring_type)] += 1
+            category = get_category_for_size_and_spring(size_cat, spring_type)
+            category_name = category.name if category else f"{size_cat} / {spring_type}"
+            att.equipment_info = {
+                'category': category,
+                'category_name': category_name,
+            }
+            category_counter[category_name] += 1
 
-        # Build summary list sorted by size then spring
-        size_order = {'S': 0, 'M': 1, 'L': 2, 'XL': 3, '?': 4}
-        size_spring_summary = []
-        for (size, spring), count in sorted(
-            size_spring_counter.items(),
-            key=lambda x: (size_order.get(x[0][0], 99), x[0][1])
-        ):
-            size_spring_summary.append({
-                'size': size,
-                'spring': spring,
-                'spring_display': 'HD' if spring == 'hd' else 'Standaard',
+        # Build category summary list sorted alphabetically
+        category_summary = []
+        for cat_name, count in sorted(category_counter.items()):
+            category_summary.append({
+                'category': cat_name,
                 'count': count,
             })
 
@@ -245,7 +240,7 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
             'session_title': attendances[0].title if attendances else 'Sessie',
             'session_date': attendances[0].session_date if attendances else '',
             'total_count': len(attendances),
-            'size_spring_summary': size_spring_summary,
+            'category_summary': category_summary,
         }
 
         html = render_to_string('admin/bookings/attendance_print.html', context)

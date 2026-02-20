@@ -565,7 +565,7 @@
         <!-- Available Sessions -->
         <div class="card" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="margin-bottom: 0;">📅 Beschikbare Sessies (Maat {{ size_category }})</h2>
+                <h2 style="margin-bottom: 0;">📅 Beschikbare Sessies ({% if boot_category %}{{ boot_category.name }}{% else %}Maat {{ size_category }}{% endif %})</h2>
                 <div style="display: flex; gap: 5px;">
                     <a href="?view=list" class="btn {% if view_mode == 'list' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 12px; font-size: 13px;">Lijst</a>
                     <a href="?view=calendar" class="btn {% if view_mode == 'calendar' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 12px; font-size: 13px;">Kalender</a>

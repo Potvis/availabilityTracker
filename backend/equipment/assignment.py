@@ -244,9 +244,97 @@ def assign_equipment(member, session_datetime=None):
     }
 
 
+def get_member_category(member):
+    """
+    Find the EquipmentCategory matching a member's size and spring type requirements.
+
+    Args:
+        member: Member object
+
+    Returns:
+        EquipmentCategory instance or None
+    """
+    from equipment.models import EquipmentCategory
+
+    size_category, spring_type_key = get_member_equipment_requirements(member)
+    if not size_category:
+        return None
+
+    # Resolve SizeType object
+    if member.override_size_type:
+        size_type_obj = member.override_size_type
+    else:
+        size_type_obj = SizeType.objects.filter(
+            is_active=True,
+            name=size_category,
+        ).first()
+
+    if not size_type_obj:
+        return None
+
+    # Resolve SpringType object
+    spring_name = _resolve_spring_type_name(spring_type_key)
+    if member.override_spring_type:
+        spring_type_obj = member.override_spring_type
+    else:
+        spring_type_obj = SpringType.objects.filter(
+            is_active=True,
+            name__iexact=spring_name,
+        ).first()
+
+    if not spring_type_obj:
+        return None
+
+    return EquipmentCategory.objects.filter(
+        is_active=True,
+        size_type=size_type_obj,
+        spring_type=spring_type_obj,
+    ).first()
+
+
+def get_category_for_size_and_spring(size_category, spring_type_key):
+    """
+    Find the EquipmentCategory matching a given size category and spring type key.
+    Used for bookings/print views where we don't have a member object.
+
+    Args:
+        size_category: e.g. 'S', 'M', 'L', 'XL'
+        spring_type_key: e.g. 'standard', 'hd'
+
+    Returns:
+        EquipmentCategory instance or None
+    """
+    from equipment.models import EquipmentCategory
+
+    if not size_category:
+        return None
+
+    size_type_obj = SizeType.objects.filter(
+        is_active=True,
+        name=size_category,
+    ).first()
+    if not size_type_obj:
+        return None
+
+    spring_name = _resolve_spring_type_name(spring_type_key)
+    spring_type_obj = SpringType.objects.filter(
+        is_active=True,
+        name__iexact=spring_name,
+    ).first()
+    if not spring_type_obj:
+        return None
+
+    return EquipmentCategory.objects.filter(
+        is_active=True,
+        size_type=size_type_obj,
+        spring_type=spring_type_obj,
+    ).first()
+
+
 def get_equipment_requirements_display(member):
     """
     Get a human-readable description of member's equipment requirements.
+    Shows the EquipmentCategory name when available.
 
     Args:
         member: Member object
@@ -257,47 +345,23 @@ def get_equipment_requirements_display(member):
     if not member.shoe_size and not member.override_size_type:
         return {
             'text': "Schoenmaat onbekend",
+            'category': None,
             'size_category': None,
             'spring_type': None,
             'shoe_size': None,
         }
 
     size_category, spring_type = get_member_equipment_requirements(member)
-    spring_desc = _resolve_spring_type_name(spring_type)
 
-    size_ranges = {
-        'S': '32-36',
-        'M': '37-41',
-        'L': '42-46',
-        'XL': '47+'
-    }
+    # Try to find matching EquipmentCategory
+    category = get_member_category(member)
 
-    # Also try to get range from SizeType record
-    size_range = size_ranges.get(size_category, '')
-    if not size_range:
-        try:
-            st = SizeType.objects.get(name=size_category, is_active=True)
-            if st.min_shoe_size and st.max_shoe_size:
-                size_range = f'{st.min_shoe_size}-{st.max_shoe_size}'
-        except SizeType.DoesNotExist:
-            size_range = '?'
-
-    # Check for assigned equipment with specific spring/shell type details
-    assigned = find_available_equipment(member.shoe_size, None, member=member)
-    spring_detail = None
-    shell_detail = None
-    if assigned and assigned.exists():
-        first = assigned.first()
-        if first.spring_type:
-            spring_detail = first.spring_type.name
-        if first.shell_type:
-            shell_detail = first.shell_type.name
-
-    text = f"Maat {size_category} ({size_range}) - {spring_desc} veer"
-    if spring_detail and spring_detail.lower() != spring_desc.lower():
-        text += f" ({spring_detail})"
-    if shell_detail:
-        text += f" - Schelp: {shell_detail}"
+    if category:
+        text = category.name
+    else:
+        # Fallback if no category matches
+        spring_desc = _resolve_spring_type_name(spring_type)
+        text = f"Maat {size_category} - {spring_desc} veer"
 
     # Mark if admin overrides are active
     overrides = []
@@ -310,10 +374,9 @@ def get_equipment_requirements_display(member):
 
     return {
         'text': text,
+        'category': category,
         'size_category': size_category,
         'spring_type': spring_type,
-        'spring_detail': spring_detail,
-        'shell_detail': shell_detail,
         'shoe_size': member.shoe_size,
     }
 
