@@ -76,7 +76,7 @@
             color: #555;
         }
 
-        
+
         .terms-box {
             background: #fff3cd;
             border: 2px solid #ff9800;
@@ -84,18 +84,18 @@
             margin-bottom: 20px;
             border-radius: 5px;
         }
-        
+
         .terms-box h3 {
             color: #ff6b00;
             margin-bottom: 10px;
         }
-        
+
         .terms-box p {
             font-size: 14px;
             line-height: 1.6;
             color: #333;
         }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -128,7 +128,16 @@
         tbody tr:hover {
             background-color: #f0f0f0;
         }
-            
+
+        .category-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
         .size-badge {
             background: #2196F3;
             color: white;
@@ -136,22 +145,6 @@
             border-radius: 3px;
             font-weight: bold;
             font-size: 11px;
-        }
-
-        .spring-badge {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 11px;
-            color: white;
-        }
-
-        .spring-standard {
-            background: #2196F3;
-        }
-
-        .spring-hd {
-            background: #FF9800;
         }
 
         .trial-badge {
@@ -163,28 +156,29 @@
             font-size: 11px;
             margin-left: 5px;
         }
-        
+
         .sessions-remaining {
             color: #4CAF50;
             font-weight: bold;
         }
-        
+
         .sessions-low {
             color: #FF9800;
             font-weight: bold;
         }
-        
+
         .sessions-none {
             color: #f44336;
             font-weight: bold;
         }
-        
-        .print-button {
+
+        .print-buttons {
             position: fixed;
             top: 20px;
             right: 20px;
             display: flex;
             gap: 10px;
+            z-index: 100;
         }
 
         .print-button {
@@ -276,9 +270,7 @@
                 <tr>
                     <th style="width: 40px;">#</th>
                     <th>Naam</th>
-                    <th style="width: 60px;">Schoen</th>
-                    <th style="width: 60px;">Maat</th>
-                    <th style="width: 80px;">Veer</th>
+                    <th style="width: 120px;">Categorie</th>
                     <th style="width: 100px;">Kaart</th>
                     <th style="width: 60px; text-align: center;">Aanw.</th>
                 </tr>
@@ -294,22 +286,8 @@
                             <strong>{{ attendance.member.email }}</strong>
                         {% endif %}
                     </td>
-                    <td>{{ attendance.member.shoe_size|default:"-" }}</td>
                     <td>
-                        {% if attendance.size_category %}
-                        <span class="size-badge">{{ attendance.size_category }}</span>
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if attendance.equipment_info.spring_type %}
-                        <span class="spring-badge {% if attendance.equipment_info.spring_type == 'hd' %}spring-hd{% else %}spring-standard{% endif %}">
-                            {{ attendance.equipment_info.spring_display }}
-                        </span>
-                        {% else %}
-                        -
-                        {% endif %}
+                        <span class="category-badge">{{ attendance.equipment_info.category_name }}</span>
                     </td>
                     <td>
                         {% if attendance.session_card %}
@@ -327,7 +305,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align: center; color: #999; padding: 30px;">
+                    <td colspan="5" style="text-align: center; color: #999; padding: 30px;">
                         Geen deelnemers gevonden
                     </td>
                 </tr>
@@ -335,27 +313,21 @@
             </tbody>
         </table>
 
-        <!-- Equipment summary per size/spring -->
-        {% if size_spring_summary %}
+        <!-- Equipment summary per category -->
+        {% if category_summary %}
         <div class="equipment-summary">
             <h3>Benodigde Kangoo Boots Overzicht</h3>
             <table>
                 <thead>
                     <tr>
-                        <th>Maat</th>
-                        <th>Veer Type</th>
+                        <th>Categorie</th>
                         <th>Aantal</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in size_spring_summary %}
+                    {% for item in category_summary %}
                     <tr>
-                        <td><span class="size-badge">{{ item.size }}</span></td>
-                        <td>
-                            <span class="spring-badge {% if item.spring == 'hd' %}spring-hd{% else %}spring-standard{% endif %}">
-                                {{ item.spring_display }}
-                            </span>
-                        </td>
+                        <td><span class="category-badge">{{ item.category }}</span></td>
                         <td><strong>{{ item.count }}</strong></td>
                     </tr>
                     {% endfor %}
@@ -368,14 +340,14 @@
     <!-- ==================== USER VIEW ==================== -->
     <div id="user-view" style="display: none;">
     <div class="terms-box">
-        <h3>⚠️ BELANGRIJK - Lees voor ondertekening</h3>
+        <h3>BELANGRIJK - Lees voor ondertekening</h3>
         <p>
             <strong>Door het ondertekenen van deze lijst bevestig je:</strong><br>
-            • Je bent aanwezig bij deze Jump4Fun sessie<br>
-            • Er wordt automatisch <strong>1 sessie afgetrokken van je sessiekaart</strong><br>
+            - Je bent aanwezig bij deze Jump4Fun sessie<br>
+            - Er wordt automatisch <strong>1 sessie afgetrokken van je sessiekaart</strong><br>
         </p>
     </div>
-    
+
     <table>
         <thead>
             <tr>
@@ -404,8 +376,8 @@
                 <td>
                     {% if attendance.session_card %}
                         {{ attendance.session_card.card_type }}
-                        {% if attendance.session_card.card_category == 'trial' %}
-                            <span class="trial-badge">🎓 OEFENBEURT</span>
+                        {% if attendance.session_card.is_trial %}
+                            <span class="trial-badge">OEFENBEURT</span>
                         {% endif %}
                     {% else %}
                         <em style="color: #999;">Geen kaart</em>

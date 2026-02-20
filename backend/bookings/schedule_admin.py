@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.utils.html import format_html
 from django.utils import timezone
 from .schedule_models import SessionSchedule, BusinessEvent, BusinessEventBooking, Company
-from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight
+from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight, get_category_for_size_and_spring
 
 
 @admin.register(SessionSchedule)
@@ -499,41 +499,38 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
     actions = ['print_attendance_list']
 
     def print_attendance_list(self, request, queryset):
-        """Print attendance list with shoe overview for selected business event bookings."""
+        """Print attendance list with category overview for selected business event bookings."""
         bookings = queryset.select_related('event', 'member').order_by('last_name', 'first_name')
 
-        # Build booking data with equipment info
+        # Build booking data with category info
         booking_data = []
-        size_spring_counter = Counter()
+        category_counter = Counter()
 
         for booking in bookings:
             size_category = booking.size_category or get_size_category_from_shoe_size(booking.shoe_size)
             spring_type = get_spring_type_from_weight(booking.weight) if booking.weight else 'standard'
 
-            # Build display label
-            size_label = dict(BusinessEventBooking._meta.get_field('size_category').choices).get(
-                size_category, size_category
-            ) if size_category else '-'
-            spring_label = spring_type.capitalize() if spring_type else '-'
+            # Find matching EquipmentCategory
+            category = get_category_for_size_and_spring(size_category, spring_type) if size_category else None
+            category_name = category.name if category else f"{size_category or '?'} / {spring_type}"
 
             if size_category:
-                size_spring_counter[(size_label, spring_label)] += 1
+                category_counter[category_name] += 1
 
             booking_data.append({
                 'booking': booking,
-                'size_label': size_label,
-                'spring_label': spring_label,
+                'category_name': category_name,
             })
 
-        # Sort equipment summary
-        equipment_summary = sorted(size_spring_counter.items(), key=lambda x: x[0][0])
+        # Build category summary sorted alphabetically
+        category_summary = sorted(category_counter.items(), key=lambda x: x[0])
 
         # Determine event info from first booking
         event = bookings.first().event if bookings.exists() else None
 
         return render(request, 'admin/bookings/business_event_print.html', {
             'bookings': booking_data,
-            'equipment_summary': equipment_summary,
+            'category_summary': category_summary,
             'event': event,
             'total_count': bookings.count(),
         })

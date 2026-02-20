@@ -93,6 +93,15 @@
             background: #f9f9f9;
         }
 
+        .category-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
         .equipment-summary {
             margin-top: 25px;
             padding: 15px;
@@ -173,8 +182,7 @@
                 <th>E-mail</th>
                 <th style="width: 80px;">Schoenmaat</th>
                 <th style="width: 80px;">Gewicht</th>
-                <th style="width: 80px;">Maat</th>
-                <th style="width: 80px;">Veer</th>
+                <th style="width: 120px;">Categorie</th>
                 <th style="width: 100px;">Handtekening</th>
             </tr>
         </thead>
@@ -186,13 +194,12 @@
                 <td>{{ item.booking.email }}</td>
                 <td>{{ item.booking.shoe_size }}</td>
                 <td>{% if item.booking.weight %}{{ item.booking.weight }} kg{% else %}-{% endif %}</td>
-                <td>{{ item.size_label }}</td>
-                <td>{{ item.spring_label }}</td>
+                <td><span class="category-badge">{{ item.category_name }}</span></td>
                 <td style="min-width: 100px;"></td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" style="text-align: center; color: #999;">
+                <td colspan="7" style="text-align: center; color: #999;">
                     Geen inschrijvingen gevonden
                 </td>
             </tr>
@@ -201,22 +208,20 @@
     </table>
 
     <!-- Equipment Summary -->
-    {% if equipment_summary %}
+    {% if category_summary %}
     <div class="equipment-summary">
         <h3>Benodigde Kangoo Boots Overzicht</h3>
         <table class="summary-table">
             <thead>
                 <tr>
-                    <th>Maat</th>
-                    <th>Veer Type</th>
+                    <th>Categorie</th>
                     <th>Aantal</th>
                 </tr>
             </thead>
             <tbody>
-                {% for key, count in equipment_summary %}
+                {% for category_name, count in category_summary %}
                 <tr>
-                    <td>{{ key.0 }}</td>
-                    <td>{{ key.1 }}</td>
+                    <td><span class="category-badge">{{ category_name }}</span></td>
                     <td class="count">{{ count }}</td>
                 </tr>
                 {% endfor %}
