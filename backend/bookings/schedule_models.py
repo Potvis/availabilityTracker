@@ -392,15 +392,18 @@ class BusinessEvent(models.Model):
 
     def get_equipment_capacity_for_size(self, size_category, spring_type_key=None):
         """Get capacity for a specific size based on available equipment.
-        Equipment without spring_type set is always included (available for any type)."""
+        Equipment without spring_type set is always included (available for any type).
+        Matches via both the size CharField and size_type FK to handle
+        admin-configured SizeType names that differ from Equipment.SIZE_CHOICES."""
         from django.db.models import Q
         from equipment.models import Equipment
-        base_q = Q(status='available', size=size_category)
+        size_q = Q(size=size_category) | Q(size_type__name=size_category)
+        base_q = Q(status='available') & size_q
         if spring_type_key:
             from equipment.assignment import _spring_filter
             spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
-            return Equipment.objects.filter(base_q & spring_q).count()
-        return Equipment.objects.filter(base_q).count()
+            return Equipment.objects.filter(base_q & spring_q).distinct().count()
+        return Equipment.objects.filter(base_q).distinct().count()
 
     def get_booked_count_for_size(self, size_category):
         """Get number of bookings for a specific size category."""
@@ -418,8 +421,16 @@ class BusinessEvent(models.Model):
 
     def get_available_spots(self):
         """Get total available spots across all sizes, based on equipment."""
+        from equipment.models import SizeType
         total_available = 0
-        for size in ['S', 'M', 'L', 'XL']:
+        # Use admin-configured SizeType names when available, fall back to
+        # hardcoded choices so the count matches how bookings store size_category.
+        size_categories = list(
+            SizeType.objects.filter(is_active=True).values_list('name', flat=True)
+        )
+        if not size_categories:
+            size_categories = ['S', 'M', 'L', 'XL']
+        for size in size_categories:
             equipment_count = self.get_equipment_capacity_for_size(size)
             booked_count = self.get_booked_count_for_size(size)
             total_available += max(0, equipment_count - booked_count)
