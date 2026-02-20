@@ -353,9 +353,10 @@ def client_dashboard(request):
         messages.warning(request, 'Vul eerst uw profiel aan om sessies te kunnen boeken.')
         return redirect('accounts:profile_complete')
     
-    # Get member's size category and spring type for filtering sessions
-    from equipment.assignment import get_member_equipment_requirements
+    # Get member's size category, spring type, and boot category for filtering sessions
+    from equipment.assignment import get_member_equipment_requirements, get_member_category
     size_category, spring_type_key = get_member_equipment_requirements(member)
+    boot_category = get_member_category(member)
 
     # Get active session schedules that have capacity for their size + spring type
     all_active_schedules = SessionSchedule.objects.filter(
@@ -500,6 +501,7 @@ def client_dashboard(request):
         'active_cards': active_cards,
         'equipment_requirements': equipment_req,
         'size_category': size_category,
+        'boot_category': boot_category,
         'upcoming_event_bookings': upcoming_event_bookings,
         'past_event_bookings': past_event_bookings,
         'available_card_types': available_card_types,
