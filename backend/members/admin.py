@@ -30,7 +30,7 @@ class SessionCardInline(admin.TabularInline):
 @admin.register(Member)
 class MemberAdmin(admin.ModelAdmin):
     list_display = [
-        'email', 'full_name', 'shoe_size', 'size_category_display', 'spring_type_display',
+        'email', 'full_name', 'shoe_size', 'boot_category_display',
         'insurance_status_badge',
         'total_sessions_display', 'active_cards_count', 'created_at'
     ]
@@ -46,11 +46,11 @@ class MemberAdmin(admin.ModelAdmin):
         ('Schoenmaat & Verzekering', {
             'fields': ('shoe_size', 'insurance_status')
         }),
-        ('Schoentoewijzing Overschrijven', {
-            'fields': ('override_size_type', 'override_spring_type'),
+        ('Schoen Categorie Overschrijven', {
+            'fields': ('override_category',),
             'description': (
                 'Laat leeg voor automatische toewijzing op basis van schoenmaat en gewicht. '
-                'Vul in om de automatische toewijzing te overschrijven.'
+                'Selecteer een categorie om de automatische toewijzing te overschrijven.'
             ),
         }),
         ('Extra', {
@@ -61,44 +61,23 @@ class MemberAdmin(admin.ModelAdmin):
 
     # --- list_display methods ---
 
-    def size_category_display(self, obj):
-        from equipment.assignment import get_member_equipment_requirements
+    def boot_category_display(self, obj):
+        from equipment.assignment import get_member_category
         try:
-            size_category, _ = get_member_equipment_requirements(obj)
+            category = get_member_category(obj)
         except Exception:
-            size_category = None
-        if not size_category:
+            category = None
+        if not category:
             return format_html('<span style="color: gray;">-</span>')
-        is_override = bool(obj.override_size_type)
-        label = f'{size_category} (handmatig)' if is_override else size_category
-        color = '#9C27B0' if is_override else '#2196F3'
+        is_override = bool(obj.override_category)
+        label = f'{category.name} (handmatig)' if is_override else category.name
+        color = '#9C27B0' if is_override else '#4CAF50'
         return format_html(
             '<span style="background-color: {}; color: white; padding: 2px 8px; '
             'border-radius: 3px; font-size: 11px; font-weight: bold;">{}</span>',
             color, label
         )
-    size_category_display.short_description = 'Maat Cat.'
-
-    def spring_type_display(self, obj):
-        from equipment.assignment import get_member_equipment_requirements, _resolve_spring_type_name
-        try:
-            _, spring_type = get_member_equipment_requirements(obj)
-        except Exception:
-            spring_type = None
-        if not spring_type:
-            return format_html('<span style="color: gray;">-</span>')
-        is_override = bool(obj.override_spring_type)
-        name = _resolve_spring_type_name(spring_type)
-        label = f'{name} (handmatig)' if is_override else name
-        color = '#FF9800' if 'hd' in spring_type.lower() else '#4CAF50'
-        if is_override:
-            color = '#9C27B0'
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 2px 8px; '
-            'border-radius: 3px; font-size: 11px; font-weight: bold;">{}</span>',
-            color, label
-        )
-    spring_type_display.short_description = 'Veer'
+    boot_category_display.short_description = 'Boot Type'
 
     def weight_display(self, obj):
         if hasattr(obj, 'user_profile') and obj.user_profile and obj.user_profile.weight:

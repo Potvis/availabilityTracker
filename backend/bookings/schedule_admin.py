@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.utils.html import format_html
 from django.utils import timezone
 from .schedule_models import SessionSchedule, BusinessEvent, BusinessEventBooking, Company
-from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight, get_category_for_size_and_spring
+from equipment.assignment import get_category_from_shoe_size_and_weight
 
 
 @admin.register(SessionSchedule)
@@ -72,25 +72,16 @@ class SessionScheduleAdmin(admin.ModelAdmin):
     def equipment_capacities_display(self, obj):
         capacities = SessionSchedule.get_equipment_capacities()
 
-        if sum(capacities.values()) == 0:
+        if not capacities or sum(capacities.values()) == 0:
             return format_html('<span style="color: gray;">Geen Kangoo Boots beschikbaar</span>')
 
-        colors = {
-            'S': '#2196F3',
-            'M': '#4CAF50',
-            'L': '#FF9800',
-            'XL': '#F44336'
-        }
-
         badges = []
-        for size in ['S', 'M', 'L', 'XL']:
-            count = capacities.get(size, 0)
+        for cat_name, count in sorted(capacities.items()):
             if count > 0:
-                color = colors.get(size, 'gray')
                 badges.append(
-                    f'<span style="background-color: {color}; color: white; '
+                    f'<span style="background-color: #4CAF50; color: white; '
                     f'padding: 2px 8px; border-radius: 3px; font-size: 11px; '
-                    f'margin-right: 4px;">{size}: {count}</span>'
+                    f'margin-right: 4px;">{cat_name}: {count}</span>'
                 )
 
         return format_html(' '.join(badges)) if badges else format_html(
@@ -294,10 +285,10 @@ class CompanyAdmin(admin.ModelAdmin):
 class BusinessEventBookingInline(admin.TabularInline):
     model = BusinessEventBooking
     extra = 0
-    readonly_fields = ['booked_at', 'size_category']
+    readonly_fields = ['booked_at']
     fields = [
         'first_name', 'last_name', 'email',
-        'shoe_size', 'weight', 'size_category', 'member', 'booked_at'
+        'shoe_size', 'weight', 'equipment_category', 'member', 'booked_at'
     ]
 
 
@@ -445,14 +436,14 @@ class BusinessEventAdmin(admin.ModelAdmin):
 class BusinessEventBookingAdmin(admin.ModelAdmin):
     list_display = [
         'guest_name', 'event_title', 'email',
-        'shoe_size', 'weight', 'size_category', 'has_account_badge', 'booked_at'
+        'shoe_size', 'weight', 'category_display', 'has_account_badge', 'booked_at'
     ]
-    list_filter = ['event', 'event__company', 'size_category', 'booked_at']
+    list_filter = ['event', 'event__company', 'equipment_category', 'booked_at']
     search_fields = [
         'first_name', 'last_name', 'email',
         'event__title', 'event__company__name'
     ]
-    readonly_fields = ['booked_at', 'size_category']
+    readonly_fields = ['booked_at']
     date_hierarchy = 'booked_at'
 
     fieldsets = (
@@ -463,7 +454,7 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
             'fields': ('first_name', 'last_name', 'email')
         }),
         ('Kangoo Boots', {
-            'fields': ('shoe_size', 'weight', 'size_category')
+            'fields': ('shoe_size', 'weight', 'equipment_category')
         }),
         ('Account', {
             'fields': ('member',),
@@ -484,6 +475,24 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
         return obj.event.title
     event_title.short_description = 'Evenement'
 
+    def category_display(self, obj):
+        if obj.equipment_category:
+            return format_html(
+                '<span style="background-color: #4CAF50; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px; font-weight: bold;">{}</span>',
+                obj.equipment_category.name
+            )
+        # Fall back to computing from shoe_size/weight
+        category = get_category_from_shoe_size_and_weight(obj.shoe_size, obj.weight)
+        if category:
+            return format_html(
+                '<span style="background-color: #2196F3; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px;">{}</span>',
+                category.name
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    category_display.short_description = 'Categorie'
+
     def has_account_badge(self, obj):
         if obj.member:
             return format_html(
@@ -500,22 +509,19 @@ class BusinessEventBookingAdmin(admin.ModelAdmin):
 
     def print_attendance_list(self, request, queryset):
         """Print attendance list with category overview for selected business event bookings."""
-        bookings = queryset.select_related('event', 'member').order_by('last_name', 'first_name')
+        bookings = queryset.select_related('event', 'member', 'equipment_category').order_by('last_name', 'first_name')
 
         # Build booking data with category info
         booking_data = []
         category_counter = Counter()
 
         for booking in bookings:
-            size_category = booking.size_category or get_size_category_from_shoe_size(booking.shoe_size)
-            spring_type = get_spring_type_from_weight(booking.weight) if booking.weight else 'standard'
+            category = booking.equipment_category
+            if not category:
+                category = get_category_from_shoe_size_and_weight(booking.shoe_size, booking.weight)
+            category_name = category.name if category else "Onbekend"
 
-            # Find matching EquipmentCategory
-            category = get_category_for_size_and_spring(size_category, spring_type) if size_category else None
-            category_name = category.name if category else f"{size_category or '?'} / {spring_type}"
-
-            if size_category:
-                category_counter[category_name] += 1
+            category_counter[category_name] += 1
 
             booking_data.append({
                 'booking': booking,

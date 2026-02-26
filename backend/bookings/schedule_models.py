@@ -4,13 +4,6 @@ from django.utils import timezone
 from datetime import timedelta
 import uuid
 
-SIZE_CATEGORY_CHOICES = [
-    ('S', 'Small'),
-    ('M', 'Medium'),
-    ('L', 'Large'),
-    ('XL', 'Extra Large'),
-]
-
 class SessionSchedule(models.Model):
     """
     Defines when sessions are available for booking.
@@ -102,17 +95,15 @@ class SessionSchedule(models.Model):
             return min(total, self.max_capacity)
         return total
 
-    def get_capacity_for_size(self, size_category, spring_type_key=None):
-        """Get capacity for a specific size category (and optionally spring type).
-        Equipment without spring_type set is always included (available for any type)."""
-        from django.db.models import Q
+    def get_capacity_for_category(self, category):
+        """Get capacity for a specific equipment category."""
         from equipment.models import Equipment
-        base_q = Q(status='available', size=size_category)
-        if spring_type_key:
-            from equipment.assignment import _spring_filter
-            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
-            return Equipment.objects.filter(base_q & spring_q).count()
-        return Equipment.objects.filter(base_q).count()
+        if not category:
+            return 0
+        return Equipment.objects.filter(
+            status='available',
+            category=category,
+        ).count()
 
     def get_next_occurrence(self, from_date=None):
         """Get the next occurrence of this session schedule"""
@@ -162,18 +153,21 @@ class SessionSchedule(models.Model):
 
         return True
 
-    def get_available_capacity_for_size(self, session_datetime, size_category, spring_type_key=None):
-        """Get available capacity for a specific size category (and optionally spring type)"""
+    def get_available_capacity_for_category(self, session_datetime, category):
+        """Get available capacity for a specific equipment category"""
         from bookings.models import SessionAttendance
 
-        # Get total capacity for this size (+ spring type if provided)
-        total_capacity = self.get_capacity_for_size(size_category, spring_type_key)
+        if not category:
+            return 0
 
-        # Count existing bookings for this specific date/time and size
+        # Get total capacity for this category
+        total_capacity = self.get_capacity_for_category(category)
+
+        # Count existing bookings for this specific date/time and category
         booked_count = SessionAttendance.objects.filter(
             session_date=session_datetime,
             title=self.title,
-            size_category=size_category
+            equipment_category=category,
         ).count()
 
         available = max(0, total_capacity - booked_count)
@@ -189,22 +183,25 @@ class SessionSchedule(models.Model):
 
         return available
 
-    def get_available_capacity(self, session_datetime, size_category=None, spring_type_key=None):
+    def get_available_capacity(self, session_datetime, category=None):
         """Get available capacity for a specific session occurrence"""
-        if size_category:
-            return self.get_available_capacity_for_size(session_datetime, size_category, spring_type_key)
+        if category:
+            return self.get_available_capacity_for_category(session_datetime, category)
 
-        # Return total available across all sizes
+        # Return total available across all categories
         from bookings.models import SessionAttendance
-        from equipment.models import Equipment
+        from equipment.models import Equipment, EquipmentCategory
 
         total_available = 0
-        for size in ['S', 'M', 'L', 'XL']:
-            equipment_count = Equipment.objects.filter(status='available', size=size).count()
+        categories = EquipmentCategory.objects.filter(is_active=True)
+        for cat in categories:
+            equipment_count = Equipment.objects.filter(
+                status='available', category=cat
+            ).count()
             booked = SessionAttendance.objects.filter(
                 session_date=session_datetime,
                 title=self.title,
-                size_category=size
+                equipment_category=cat,
             ).count()
             total_available += max(0, equipment_count - booked)
 
@@ -218,41 +215,39 @@ class SessionSchedule(models.Model):
 
         return total_available
 
-    def can_book(self, session_datetime, size_category=None, spring_type_key=None):
+    def can_book(self, session_datetime, category=None):
         """Check if a session can be booked"""
         return (
             self.is_active and
             self.is_booking_open(session_datetime) and
-            self.get_available_capacity(session_datetime, size_category, spring_type_key) > 0
+            self.get_available_capacity(session_datetime, category) > 0
         )
 
-    def has_capacity_for_size(self, size_category, spring_type_key=None):
-        """Check if there is available equipment for this size (and optionally spring type).
-        Equipment without spring_type set is always included."""
-        from django.db.models import Q
+    def has_capacity_for_category(self, category):
+        """Check if there is available equipment for this category."""
         from equipment.models import Equipment
-        base_q = Q(status='available', size=size_category)
-        if spring_type_key:
-            from equipment.assignment import _spring_filter
-            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
-            return Equipment.objects.filter(base_q & spring_q).exists()
-        return Equipment.objects.filter(base_q).exists()
+        if not category:
+            return False
+        return Equipment.objects.filter(
+            status='available',
+            category=category,
+        ).exists()
 
     @staticmethod
     def get_equipment_capacities():
-        """Get available equipment count per size category"""
-        from equipment.models import Equipment
+        """Get available equipment count per category"""
+        from equipment.models import Equipment, EquipmentCategory
         from django.db.models import Count
 
-        counts = Equipment.objects.filter(status='available').values('size').annotate(
+        counts = Equipment.objects.filter(
+            status='available',
+            category__isnull=False,
+        ).values('category__id', 'category__name').annotate(
             count=Count('id')
         )
-        # Convert to dict
-        result = {item['size']: item['count'] for item in counts}
-        # Ensure all sizes are present
-        for size in ['S', 'M', 'L', 'XL']:
-            if size not in result:
-                result[size] = 0
+        result = {}
+        for item in counts:
+            result[item['category__name']] = item['count']
         return result
 
 
@@ -390,29 +385,26 @@ class BusinessEvent(models.Model):
     def bookings_count(self):
         return self.event_bookings.count()
 
-    def get_equipment_capacity_for_size(self, size_category, spring_type_key=None):
-        """Get capacity for a specific size based on available equipment.
-        Equipment without spring_type set is always included (available for any type).
-        Matches via both the size CharField and size_type FK to handle
-        admin-configured SizeType names that differ from Equipment.SIZE_CHOICES."""
-        from django.db.models import Q
+    def get_equipment_capacity_for_category(self, category):
+        """Get capacity for a specific equipment category based on available equipment."""
         from equipment.models import Equipment
-        size_q = Q(size=size_category) | Q(size_type__name=size_category)
-        base_q = Q(status='available') & size_q
-        if spring_type_key:
-            from equipment.assignment import _spring_filter
-            spring_q = Q(**_spring_filter(spring_type_key)) | Q(spring_type__isnull=True)
-            return Equipment.objects.filter(base_q & spring_q).distinct().count()
-        return Equipment.objects.filter(base_q).distinct().count()
+        if not category:
+            return 0
+        return Equipment.objects.filter(
+            status='available',
+            category=category,
+        ).count()
 
-    def get_booked_count_for_size(self, size_category):
-        """Get number of bookings for a specific size category."""
-        return self.event_bookings.filter(size_category=size_category).count()
+    def get_booked_count_for_category(self, category):
+        """Get number of bookings for a specific equipment category."""
+        if not category:
+            return 0
+        return self.event_bookings.filter(equipment_category=category).count()
 
-    def get_available_spots_for_size(self, size_category, spring_type_key=None):
-        """Get available spots for a specific equipment size (and optionally spring type)."""
-        equipment_count = self.get_equipment_capacity_for_size(size_category, spring_type_key)
-        booked_count = self.get_booked_count_for_size(size_category)
+    def get_available_spots_for_category(self, category):
+        """Get available spots for a specific equipment category."""
+        equipment_count = self.get_equipment_capacity_for_category(category)
+        booked_count = self.get_booked_count_for_category(category)
         available = max(0, equipment_count - booked_count)
         if self.max_capacity is not None:
             total_remaining = max(0, self.max_capacity - self.bookings_count)
@@ -420,19 +412,17 @@ class BusinessEvent(models.Model):
         return available
 
     def get_available_spots(self):
-        """Get total available spots across all sizes, based on equipment."""
-        from equipment.models import SizeType
+        """Get total available spots across all categories, based on equipment."""
+        from equipment.models import EquipmentCategory, Equipment
+        from django.db.models import Count
+
         total_available = 0
-        # Use admin-configured SizeType names when available, fall back to
-        # hardcoded choices so the count matches how bookings store size_category.
-        size_categories = list(
-            SizeType.objects.filter(is_active=True).values_list('name', flat=True)
-        )
-        if not size_categories:
-            size_categories = ['S', 'M', 'L', 'XL']
-        for size in size_categories:
-            equipment_count = self.get_equipment_capacity_for_size(size)
-            booked_count = self.get_booked_count_for_size(size)
+        categories = EquipmentCategory.objects.filter(is_active=True)
+        for cat in categories:
+            equipment_count = Equipment.objects.filter(
+                status='available', category=cat
+            ).count()
+            booked_count = self.event_bookings.filter(equipment_category=cat).count()
             total_available += max(0, equipment_count - booked_count)
         if self.max_capacity is not None:
             total_remaining = max(0, self.max_capacity - self.bookings_count)
@@ -443,9 +433,9 @@ class BusinessEvent(models.Model):
         """Check if the event can accept any more bookings."""
         return self.is_active and self.is_in_future and self.get_available_spots() > 0
 
-    def can_book_for_size(self, size_category, spring_type_key=None):
-        """Check if the event can accept a booking for a specific size."""
-        return self.is_active and self.is_in_future and self.get_available_spots_for_size(size_category, spring_type_key) > 0
+    def can_book_for_category(self, category):
+        """Check if the event can accept a booking for a specific category."""
+        return self.is_active and self.is_in_future and self.get_available_spots_for_category(category) > 0
  
  
 class BusinessEventBooking(models.Model):
@@ -467,10 +457,13 @@ class BusinessEventBooking(models.Model):
     shoe_size = models.CharField(max_length=10)
     weight = models.DecimalField(max_digits=5, decimal_places=2)
  
-    size_category = models.CharField(
-        max_length=5,
-        choices=SIZE_CATEGORY_CHOICES,
+    equipment_category = models.ForeignKey(
+        'equipment.EquipmentCategory',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
+        verbose_name='Boot Categorie',
+        help_text='Kangoo Boot categorie voor deze boeking'
     )
  
     # Optional link to member (if guest opted in for account creation)
