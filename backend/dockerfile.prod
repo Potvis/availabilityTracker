@@ -34,6 +34,7 @@ RUN groupadd -r app && useradd -r -g app app
 # Create the appropriate directories
 ENV HOME=/home/app
 ENV APP_HOME=/home/app/web
+ENV DJANGO_SETTINGS_MODULE=kangoo_project.settings
 RUN mkdir -p $APP_HOME/staticfiles $APP_HOME/media
 WORKDIR $APP_HOME
 
