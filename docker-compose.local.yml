@@ -29,6 +29,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DJANGO_SETTINGS_MODULE=kangoo_project.settings
       - DB_PASSWORD=kangoo_dev_password_local
       - DATABASE_URL=postgresql://kangoo:kangoo_dev_password_local@db:5432/kangoo  # ← Change to kangoo
       - DEBUG=True

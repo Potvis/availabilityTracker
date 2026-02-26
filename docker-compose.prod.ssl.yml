@@ -22,6 +22,7 @@ services:
     expose:
       - 8000
     environment:
+      - DJANGO_SETTINGS_MODULE=kangoo_project.settings
       - DATABASE=postgres
       - SQL_HOST=beta-db
       - SQL_PORT=5432
