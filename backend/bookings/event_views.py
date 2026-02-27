@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from .schedule_models import BusinessEvent, BusinessEventBooking, Company
 from .forms import BusinessEventBookingForm
-from equipment.assignment import get_size_category_from_shoe_size, get_spring_type_from_weight
+from equipment.assignment import get_category_from_shoe_size_and_weight
 from members.models import Member
 
 logger = logging.getLogger(__name__)
@@ -126,16 +126,14 @@ def event_booking_page(request, token):
                     'form': form,
                 })
 
-            # Compute size category and spring type
-            size_category = get_size_category_from_shoe_size(
-                form.cleaned_data['shoe_size']
-            )
-            spring_type_key = get_spring_type_from_weight(
-                form.cleaned_data.get('weight')
+            # Find the matching equipment category
+            category = get_category_from_shoe_size_and_weight(
+                form.cleaned_data['shoe_size'],
+                form.cleaned_data.get('weight'),
             )
 
-            # Check size-specific equipment availability (including spring type)
-            if not size_category or not event.can_book_for_size(size_category, spring_type_key):
+            # Check category-specific equipment availability
+            if not category or not event.can_book_for_category(category):
                 return render(request, 'events/event_no_equipment.html', {
                     'event': event,
                     'guest_name': f"{form.cleaned_data['first_name']} {form.cleaned_data['last_name']}",
@@ -147,7 +145,7 @@ def event_booking_page(request, token):
             # Create the booking
             booking = form.save(commit=False)
             booking.event = event
-            booking.size_category = size_category or ''
+            booking.equipment_category = category
 
             # Handle optional account creation
             create_account = form.cleaned_data.get('create_account')
@@ -310,10 +308,12 @@ def company_events_page(request, token):
                     'booked_event_ids': booked_event_ids,
                 })
 
-            size_category = get_size_category_from_shoe_size(form.cleaned_data['shoe_size'])
-            spring_type_key = get_spring_type_from_weight(form.cleaned_data.get('weight'))
+            category = get_category_from_shoe_size_and_weight(
+                form.cleaned_data['shoe_size'],
+                form.cleaned_data.get('weight'),
+            )
 
-            if not size_category or not selected_event.can_book_for_size(size_category, spring_type_key):
+            if not category or not selected_event.can_book_for_category(category):
                 return render(request, 'events/event_no_equipment.html', {
                     'event': selected_event,
                     'company': company,
@@ -325,7 +325,7 @@ def company_events_page(request, token):
 
             booking = form.save(commit=False)
             booking.event = selected_event
-            booking.size_category = size_category or ''
+            booking.equipment_category = category
 
             create_account = form.cleaned_data.get('create_account')
             if create_account:

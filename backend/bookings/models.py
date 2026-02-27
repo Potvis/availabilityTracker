@@ -5,14 +5,6 @@ from django.utils import timezone
 from members.models import Member
 from cards.models import SessionCard
 
-SIZE_CATEGORY_CHOICES = [
-    ('S', 'Small'),
-    ('M', 'Medium'),
-    ('L', 'Large'),
-    ('XL', 'Extra Large'),
-]
-
-
 class SessionAttendance(models.Model):
     """Record of a member attending a session"""
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='attendances')
@@ -27,13 +19,14 @@ class SessionAttendance(models.Model):
     total_attendees = models.IntegerField(null=True, blank=True)
     waiting_list = models.IntegerField(default=0)
 
-    # Size category for booking
-    size_category = models.CharField(
-        max_length=5,
-        choices=SIZE_CATEGORY_CHOICES,
-        blank=True,
+    # Equipment category for booking
+    equipment_category = models.ForeignKey(
+        'equipment.EquipmentCategory',
+        on_delete=models.SET_NULL,
         null=True,
-        help_text="Schoenmaat categorie voor deze boeking"
+        blank=True,
+        verbose_name='Boot Categorie',
+        help_text='Kangoo Boot categorie voor deze boeking'
     )
     
     # Tracking fields
