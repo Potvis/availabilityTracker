@@ -1,4 +1,5 @@
 import logging
+import datetime
 from datetime import timedelta
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -24,7 +25,7 @@ def _build_ical(event, booking):
 
     # Format datetimes as iCal UTC strings (YYYYMMDDTHHMMSSZ)
     def fmt(dt):
-        utc_dt = dt.astimezone(timezone.utc)
+        utc_dt = dt.astimezone(datetime.timezone.utc)
         return utc_dt.strftime('%Y%m%dT%H%M%SZ')
 
     now_stamp = fmt(timezone.now())
