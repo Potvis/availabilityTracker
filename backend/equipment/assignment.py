@@ -5,6 +5,7 @@ Supports admin overrides via Member.override_category.
 """
 from equipment.models import Equipment, EquipmentCategory, SizeType, SpringType
 from decimal import Decimal
+from django.db.models import Q, F
 
 
 def _find_size_type(shoe_size_str):
@@ -34,48 +35,37 @@ def _find_size_type(shoe_size_str):
     ).first()
 
 
-def _find_spring_type(weight):
+def _find_suitable_spring_types(weight):
     """
-    Find the matching SpringType for a given weight.
+    Find all SpringTypes suitable for a given weight, ordered by preference.
+    Prefers the most specific match (lowest max_weight that covers the weight),
+    with unlimited (NULL max_weight) spring types as fallback.
 
     Args:
         weight: Weight in kg (Decimal or float)
 
     Returns:
-        SpringType instance or None
+        QuerySet of suitable SpringType instances, ordered by preference
     """
     if not weight:
-        # Default: pick the lightest spring type (lowest max_weight)
+        # Default: pick spring types with a defined max_weight, lightest first
         return SpringType.objects.filter(
             is_active=True,
             max_weight__isnull=False,
-        ).order_by('max_weight').first()
+        ).order_by('max_weight')
 
     if not isinstance(weight, Decimal):
         weight = Decimal(str(weight))
 
-    # Find the first spring type whose max_weight covers this weight
-    suitable = SpringType.objects.filter(
-        is_active=True,
-        max_weight__isnull=False,
-        max_weight__gte=weight,
-    ).order_by('max_weight').first()
-
-    if suitable:
-        return suitable
-
-    # No spring type covers this weight; pick one without max_weight (heaviest-duty)
-    heaviest = SpringType.objects.filter(
-        is_active=True,
-        max_weight__isnull=True,
-    ).first()
-    if heaviest:
-        return heaviest
-
-    # Fall back to the one with the highest max_weight
+    # Find all spring types that can handle this weight:
+    # - Those with a defined max_weight >= the user's weight
+    # - Those with unlimited capacity (max_weight is NULL)
+    # Order: specific (lowest sufficient max_weight) first, unlimited last
     return SpringType.objects.filter(
         is_active=True,
-    ).order_by('-max_weight').first()
+    ).filter(
+        Q(max_weight__gte=weight) | Q(max_weight__isnull=True)
+    ).order_by(F('max_weight').asc(nulls_last=True))
 
 
 def get_member_category(member):
@@ -102,15 +92,17 @@ def get_member_category(member):
     if hasattr(member, 'user_profile') and member.user_profile:
         weight = member.user_profile.weight
 
-    spring_type = _find_spring_type(weight)
-    if not spring_type:
+    suitable_springs = _find_suitable_spring_types(weight)
+    if not suitable_springs.exists():
         return None
 
+    # Find a category matching this size and any of the suitable spring types
+    # Prefer the most specific spring type (lowest max_weight) over unlimited
     return EquipmentCategory.objects.filter(
         is_active=True,
         size_type=size_type,
-        spring_type=spring_type,
-    ).first()
+        spring_type__in=suitable_springs,
+    ).order_by(F('spring_type__max_weight').asc(nulls_last=True)).first()
 
 
 def get_category_from_shoe_size_and_weight(shoe_size_str, weight):
@@ -129,15 +121,17 @@ def get_category_from_shoe_size_and_weight(shoe_size_str, weight):
     if not size_type:
         return None
 
-    spring_type = _find_spring_type(weight)
-    if not spring_type:
+    suitable_springs = _find_suitable_spring_types(weight)
+    if not suitable_springs.exists():
         return None
 
+    # Find a category matching this size and any of the suitable spring types
+    # Prefer the most specific spring type (lowest max_weight) over unlimited
     return EquipmentCategory.objects.filter(
         is_active=True,
         size_type=size_type,
-        spring_type=spring_type,
-    ).first()
+        spring_type__in=suitable_springs,
+    ).order_by(F('spring_type__max_weight').asc(nulls_last=True)).first()
 
 
 def find_available_equipment(category):
