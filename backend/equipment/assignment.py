@@ -164,9 +164,8 @@ def find_available_equipment(category):
     if not category:
         return Equipment.objects.none()
 
-    return Equipment.objects.filter(
+    return category.get_matching_equipment().filter(
         status='available',
-        category=category,
     )
 
 
@@ -279,9 +278,8 @@ def check_equipment_availability(category, count=1):
             'message': 'Geen categorie opgegeven'
         }
 
-    available_count = Equipment.objects.filter(
+    available_count = category.get_matching_equipment().filter(
         status='available',
-        category=category,
     ).count()
 
     return {

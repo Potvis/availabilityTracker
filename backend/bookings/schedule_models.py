@@ -97,12 +97,10 @@ class SessionSchedule(models.Model):
 
     def get_capacity_for_category(self, category):
         """Get capacity for a specific equipment category."""
-        from equipment.models import Equipment
         if not category:
             return 0
-        return Equipment.objects.filter(
+        return category.get_matching_equipment().filter(
             status='available',
-            category=category,
         ).count()
 
     def get_next_occurrence(self, from_date=None):
@@ -190,13 +188,13 @@ class SessionSchedule(models.Model):
 
         # Return total available across all categories
         from bookings.models import SessionAttendance
-        from equipment.models import Equipment, EquipmentCategory
+        from equipment.models import EquipmentCategory
 
         total_available = 0
         categories = EquipmentCategory.objects.filter(is_active=True)
         for cat in categories:
-            equipment_count = Equipment.objects.filter(
-                status='available', category=cat
+            equipment_count = cat.get_matching_equipment().filter(
+                status='available',
             ).count()
             booked = SessionAttendance.objects.filter(
                 session_date=session_datetime,
@@ -225,12 +223,10 @@ class SessionSchedule(models.Model):
 
     def has_capacity_for_category(self, category):
         """Check if there is available equipment for this category."""
-        from equipment.models import Equipment
         if not category:
             return False
-        return Equipment.objects.filter(
+        return category.get_matching_equipment().filter(
             status='available',
-            category=category,
         ).exists()
 
     @staticmethod
@@ -387,12 +383,10 @@ class BusinessEvent(models.Model):
 
     def get_equipment_capacity_for_category(self, category):
         """Get capacity for a specific equipment category based on available equipment."""
-        from equipment.models import Equipment
         if not category:
             return 0
-        return Equipment.objects.filter(
+        return category.get_matching_equipment().filter(
             status='available',
-            category=category,
         ).count()
 
     def get_booked_count_for_category(self, category):
@@ -413,33 +407,15 @@ class BusinessEvent(models.Model):
 
     def get_available_spots(self):
         """Get total available spots across all categories, based on equipment."""
-        from equipment.models import EquipmentCategory, Equipment
-        from django.db.models import Count, Q
+        from equipment.models import EquipmentCategory
 
-        # Single query: count available equipment per category
-        equipment_per_cat = dict(
-            Equipment.objects.filter(status='available', category__is_active=True)
-            .values_list('category_id')
-            .annotate(cnt=Count('id'))
-            .values_list('category_id', 'cnt')
+        total_available = sum(
+            self.get_available_spots_for_category(cat)
+            for cat in EquipmentCategory.objects.filter(is_active=True)
         )
-
-        # Single query: count bookings per category for this event
-        booked_per_cat = dict(
-            self.event_bookings.filter(equipment_category__isnull=False)
-            .values_list('equipment_category_id')
-            .annotate(cnt=Count('id'))
-            .values_list('equipment_category_id', 'cnt')
-        )
-
-        total_available = 0
-        for cat_id, equip_count in equipment_per_cat.items():
-            booked_count = booked_per_cat.get(cat_id, 0)
-            total_available += max(0, equip_count - booked_count)
 
         if self.max_capacity is not None:
-            total_booked = self.event_bookings.count()
-            total_remaining = max(0, self.max_capacity - total_booked)
+            total_remaining = max(0, self.max_capacity - self.bookings_count)
             return min(total_available, total_remaining)
         return total_available
 
