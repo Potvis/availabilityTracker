@@ -371,7 +371,7 @@ def company_events_page(request, token):
         events_with_info.append({
             'event': event,
             'available_spots': available,
-            'can_book': event.can_book(),
+            'can_book': event.is_active and event.is_in_future and available > 0,
             'already_booked': event.pk in booked_event_ids,
         })
 
