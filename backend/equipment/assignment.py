@@ -117,21 +117,38 @@ def get_category_from_shoe_size_and_weight(shoe_size_str, weight):
     Returns:
         EquipmentCategory instance or None
     """
+    categories = get_all_categories_from_shoe_size_and_weight(shoe_size_str, weight)
+    return categories.first()
+
+
+def get_all_categories_from_shoe_size_and_weight(shoe_size_str, weight):
+    """
+    Find all EquipmentCategories matching a given shoe size and weight,
+    ordered by preference (most specific spring type first).
+    Used for event bookings to check availability across all compatible categories.
+
+    Args:
+        shoe_size_str: Shoe size as string (e.g., "42")
+        weight: Weight in kg
+
+    Returns:
+        QuerySet of EquipmentCategory instances (may be empty)
+    """
     size_type = _find_size_type(shoe_size_str)
     if not size_type:
-        return None
+        return EquipmentCategory.objects.none()
 
     suitable_springs = _find_suitable_spring_types(weight)
     if not suitable_springs.exists():
-        return None
+        return EquipmentCategory.objects.none()
 
-    # Find a category matching this size and any of the suitable spring types
+    # Find all categories matching this size and any of the suitable spring types
     # Prefer the most specific spring type (lowest max_weight) over unlimited
     return EquipmentCategory.objects.filter(
         is_active=True,
         size_type=size_type,
         spring_type__in=suitable_springs,
-    ).order_by(F('spring_type__max_weight').asc(nulls_last=True)).first()
+    ).order_by(F('spring_type__max_weight').asc(nulls_last=True))
 
 
 def find_available_equipment(category):
