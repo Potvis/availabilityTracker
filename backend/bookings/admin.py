@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from .models import SessionAttendance, CSVImport
 from .forms import CSVImportForm
 from .utils import process_csv_import
-from equipment.assignment import get_spring_type_from_weight, get_category_for_size_and_spring
+from equipment.assignment import get_member_category
 
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
@@ -92,20 +92,23 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
             )
 
     def member_name_with_size(self, obj):
-        """Display member name with shoe size"""
+        """Display member name with boot category"""
         if not obj or not obj.member:
             return '-'
-        
+
         if obj.member.first_name and obj.member.last_name:
             name = f"{obj.member.last_name}, {obj.member.first_name}"
         elif obj.member.last_name:
             name = obj.member.last_name
         else:
             name = obj.member.email
-            
-        size = obj.member.shoe_size or "?"
-        return f"{name} (maat {size})"
-    member_name_with_size.short_description = 'Lid (Schoenmaat)'
+
+        category = obj.equipment_category
+        if not category:
+            category = get_member_category(obj.member)
+        cat_name = category.name if category else "?"
+        return f"{name} ({cat_name})"
+    member_name_with_size.short_description = 'Lid (Boot Type)'
     member_name_with_size.admin_order_field = 'member__last_name'
 
     def card_used(self, obj):
@@ -214,13 +217,10 @@ class SessionAttendanceAdmin(admin.ModelAdmin):
         # Add equipment info per attendance and build category summary
         category_counter = Counter()
         for att in attendances:
-            weight = None
-            if hasattr(att.member, 'user_profile') and att.member.user_profile:
-                weight = att.member.user_profile.weight
-            spring_type = get_spring_type_from_weight(weight)
-            size_cat = att.size_category or '?'
-            category = get_category_for_size_and_spring(size_cat, spring_type)
-            category_name = category.name if category else f"{size_cat} / {spring_type}"
+            category = att.equipment_category
+            if not category:
+                category = get_member_category(att.member)
+            category_name = category.name if category else "Onbekend"
             att.equipment_info = {
                 'category': category,
                 'category_name': category_name,

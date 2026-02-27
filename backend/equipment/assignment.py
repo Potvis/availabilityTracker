@@ -1,23 +1,21 @@
 """
 Equipment assignment utilities
-Automatically assigns appropriate equipment based on member shoe size and weight.
-Supports admin overrides and dynamic SizeType / SpringType configuration.
+Automatically assigns appropriate equipment category based on member shoe size and weight.
+Supports admin overrides via Member.override_category.
 """
-from equipment.models import Equipment, SizeType, SpringType
+from equipment.models import Equipment, EquipmentCategory, SizeType, SpringType
 from decimal import Decimal
 
 
-def get_size_category_from_shoe_size(shoe_size_str):
+def _find_size_type(shoe_size_str):
     """
-    Convert shoe size string to equipment size category.
-    First tries to match against admin-managed SizeType records,
-    then falls back to hardcoded ranges.
+    Find the matching SizeType for a given shoe size.
 
     Args:
-        shoe_size_str: Shoe size as string (e.g., "38", "42", etc.)
+        shoe_size_str: Shoe size as string (e.g., "38", "42")
 
     Returns:
-        Size category name (e.g. 'S', 'M', 'L', 'XL') or None
+        SizeType instance or None
     """
     if not shoe_size_str:
         return None
@@ -27,8 +25,7 @@ def get_size_category_from_shoe_size(shoe_size_str):
     except (ValueError, TypeError):
         return None
 
-    # Try dynamic SizeType lookup first
-    size_type = SizeType.objects.filter(
+    return SizeType.objects.filter(
         is_active=True,
         min_shoe_size__isnull=False,
         max_shoe_size__isnull=False,
@@ -36,42 +33,28 @@ def get_size_category_from_shoe_size(shoe_size_str):
         max_shoe_size__gte=size,
     ).first()
 
-    if size_type:
-        return size_type.name
 
-    # Fallback to hardcoded mapping
-    if size <= 36:
-        return 'S'  # Small (32-36)
-    elif size <= 41:
-        return 'M'  # Medium (37-41)
-    elif size <= 46:
-        return 'L'  # Large (42-46)
-    else:
-        return 'XL'  # Extra Large (47+)
-
-
-def get_spring_type_from_weight(weight):
+def _find_spring_type(weight):
     """
-    Determine required spring type based on weight.
-    Uses admin-configured max_weight on SpringType records when available,
-    falls back to hardcoded threshold.
+    Find the matching SpringType for a given weight.
 
     Args:
         weight: Weight in kg (Decimal or float)
 
     Returns:
-        Spring type key: 'standard' or 'hd' (or SpringType name if configured)
+        SpringType instance or None
     """
     if not weight:
-        return 'standard'  # Default to standard if no weight provided
+        # Default: pick the lightest spring type (lowest max_weight)
+        return SpringType.objects.filter(
+            is_active=True,
+            max_weight__isnull=False,
+        ).order_by('max_weight').first()
 
-    # Convert to Decimal for precise comparison
     if not isinstance(weight, Decimal):
         weight = Decimal(str(weight))
 
-    # Try to find a suitable spring type using max_weight from the database.
-    # Spring types with max_weight set are ordered ascending; pick the first
-    # one whose max_weight >= user weight.
+    # Find the first spring type whose max_weight covers this weight
     suitable = SpringType.objects.filter(
         is_active=True,
         max_weight__isnull=False,
@@ -79,318 +62,197 @@ def get_spring_type_from_weight(weight):
     ).order_by('max_weight').first()
 
     if suitable:
-        return suitable.name.lower()
+        return suitable
 
-    # If no spring type covers this weight, pick the one without max_weight
-    # (heaviest-duty), or the one with the highest max_weight.
+    # No spring type covers this weight; pick one without max_weight (heaviest-duty)
     heaviest = SpringType.objects.filter(
         is_active=True,
         max_weight__isnull=True,
     ).first()
     if heaviest:
-        return heaviest.name.lower()
+        return heaviest
 
-    highest = SpringType.objects.filter(
+    # Fall back to the one with the highest max_weight
+    return SpringType.objects.filter(
         is_active=True,
     ).order_by('-max_weight').first()
-    if highest:
-        return highest.name.lower()
-
-    # Fallback to hardcoded threshold
-    WEIGHT_THRESHOLD = Decimal('80.00')
-    return 'hd' if weight >= WEIGHT_THRESHOLD else 'standard'
 
 
-# Map internal spring type keys to SpringType record names.
-# This is the single source of truth linking weight-based logic to the
-# admin-managed SpringType records.
-SPRING_TYPE_NAMES = {
-    'standard': 'Standaard',
-    'standaard': 'Standaard',
-    'hd': 'HD',
-}
-
-
-def _resolve_spring_type_name(spring_type_key):
-    """Resolve a spring type key to the canonical SpringType name."""
-    return SPRING_TYPE_NAMES.get(spring_type_key.lower(), spring_type_key)
-
-
-def _spring_filter(spring_type_key):
-    """Return a Q-compatible dict to filter Equipment by spring type name."""
-    name = _resolve_spring_type_name(spring_type_key)
-    return {'spring_type__name__iexact': name}
-
-
-def get_member_equipment_requirements(member):
+def get_member_category(member):
     """
-    Get the effective size category and spring type for a member,
-    taking admin overrides into account.
-
-    Returns:
-        (size_category, spring_type_key) tuple
-    """
-    # Size: admin override takes priority
-    if member.override_size_type:
-        size_category = member.override_size_type.name
-    else:
-        size_category = get_size_category_from_shoe_size(member.shoe_size)
-
-    # Spring type: admin override takes priority
-    if member.override_spring_type:
-        spring_type = member.override_spring_type.name.lower()
-    else:
-        weight = None
-        if hasattr(member, 'user_profile') and member.user_profile:
-            weight = member.user_profile.weight
-        spring_type = get_spring_type_from_weight(weight)
-
-    return size_category, spring_type
-
-
-def find_available_equipment(shoe_size_str, weight, session_datetime=None, member=None):
-    """
-    Find available equipment matching the member's requirements.
-
-    Args:
-        shoe_size_str: Member's shoe size
-        weight: Member's weight in kg
-        session_datetime: Optional datetime to check availability
-        member: Optional Member object (used for admin overrides)
-
-    Returns:
-        QuerySet of available Equipment objects, or None if requirements can't be determined
-    """
-    if member:
-        size_category, spring_type = get_member_equipment_requirements(member)
-    else:
-        size_category = get_size_category_from_shoe_size(shoe_size_str)
-        if not size_category:
-            return None
-        spring_type = get_spring_type_from_weight(weight)
-
-    if not size_category:
-        return None
-
-    # Find available equipment matching criteria
-    # Include equipment without spring_type (not yet configured)
-    # Match via both size CharField and size_type FK to handle
-    # admin-configured SizeType names that differ from Equipment.SIZE_CHOICES
-    from django.db.models import Q
-    size_q = Q(size=size_category) | Q(size_type__name=size_category)
-    base_q = Q(status='available') & size_q
-    spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
-    available_equipment = Equipment.objects.filter(base_q & spring_q).distinct()
-
-    return available_equipment
-
-
-def assign_equipment(member, session_datetime=None):
-    """
-    Assign appropriate equipment to a member based on their profile.
+    Determine the EquipmentCategory for a member.
+    Admin override takes priority over automatic calculation.
 
     Args:
         member: Member object
-        session_datetime: Optional datetime for the session
+
+    Returns:
+        EquipmentCategory instance or None
+    """
+    # Admin override takes priority
+    if member.override_category:
+        return member.override_category
+
+    # Auto-determine from shoe_size and weight
+    size_type = _find_size_type(member.shoe_size)
+    if not size_type:
+        return None
+
+    weight = None
+    if hasattr(member, 'user_profile') and member.user_profile:
+        weight = member.user_profile.weight
+
+    spring_type = _find_spring_type(weight)
+    if not spring_type:
+        return None
+
+    return EquipmentCategory.objects.filter(
+        is_active=True,
+        size_type=size_type,
+        spring_type=spring_type,
+    ).first()
+
+
+def get_category_from_shoe_size_and_weight(shoe_size_str, weight):
+    """
+    Find the EquipmentCategory matching a given shoe size and weight.
+    Used for event bookings where we don't have a member object.
+
+    Args:
+        shoe_size_str: Shoe size as string (e.g., "42")
+        weight: Weight in kg
+
+    Returns:
+        EquipmentCategory instance or None
+    """
+    size_type = _find_size_type(shoe_size_str)
+    if not size_type:
+        return None
+
+    spring_type = _find_spring_type(weight)
+    if not spring_type:
+        return None
+
+    return EquipmentCategory.objects.filter(
+        is_active=True,
+        size_type=size_type,
+        spring_type=spring_type,
+    ).first()
+
+
+def find_available_equipment(category):
+    """
+    Find available equipment in a given category.
+
+    Args:
+        category: EquipmentCategory instance
+
+    Returns:
+        QuerySet of available Equipment objects, or empty queryset
+    """
+    if not category:
+        return Equipment.objects.none()
+
+    return Equipment.objects.filter(
+        status='available',
+        category=category,
+    )
+
+
+def assign_equipment(member):
+    """
+    Assign appropriate equipment to a member based on their category.
+
+    Args:
+        member: Member object
 
     Returns:
         dict with:
             - success: bool
             - equipment: Equipment object if successful, None otherwise
-            - size_category: str
-            - spring_type: str
+            - category: EquipmentCategory or None
             - message: str describing result
     """
-    # Check if member has required info
-    if not member.shoe_size and not member.override_size_type:
+    if not member.shoe_size and not member.override_category:
         return {
             'success': False,
             'equipment': None,
-            'size_category': None,
-            'spring_type': None,
+            'category': None,
             'message': 'Schoenmaat ontbreekt in profiel'
         }
 
-    size_category, spring_type = get_member_equipment_requirements(member)
+    category = get_member_category(member)
 
-    if not size_category:
+    if not category:
         return {
             'success': False,
             'equipment': None,
-            'size_category': None,
-            'spring_type': spring_type,
-            'message': f'Ongeldige schoenmaat: {member.shoe_size}'
+            'category': None,
+            'message': f'Geen passende boot categorie gevonden voor schoenmaat {member.shoe_size}'
         }
 
-    # Find available equipment
-    available = find_available_equipment(member.shoe_size, None, session_datetime, member=member)
+    available = find_available_equipment(category)
 
-    if not available or not available.exists():
-        spring_desc = _resolve_spring_type_name(spring_type)
+    if not available.exists():
         return {
             'success': False,
             'equipment': None,
-            'size_category': size_category,
-            'spring_type': spring_type,
-            'message': f'Geen beschikbare Kangoo Boots voor maat {size_category} met {spring_desc} veer'
+            'category': category,
+            'message': f'Geen beschikbare Kangoo Boots voor categorie {category.name}'
         }
 
-    # Return first available equipment
     equipment = available.first()
 
     return {
         'success': True,
         'equipment': equipment,
-        'size_category': size_category,
-        'spring_type': spring_type,
+        'category': category,
         'message': f'Kangoo Boots toegewezen: {equipment.equipment_id}'
     }
-
-
-def get_member_category(member):
-    """
-    Find the EquipmentCategory matching a member's size and spring type requirements.
-
-    Args:
-        member: Member object
-
-    Returns:
-        EquipmentCategory instance or None
-    """
-    from equipment.models import EquipmentCategory
-
-    size_category, spring_type_key = get_member_equipment_requirements(member)
-    if not size_category:
-        return None
-
-    # Resolve SizeType object
-    if member.override_size_type:
-        size_type_obj = member.override_size_type
-    else:
-        size_type_obj = SizeType.objects.filter(
-            is_active=True,
-            name=size_category,
-        ).first()
-
-    if not size_type_obj:
-        return None
-
-    # Resolve SpringType object
-    spring_name = _resolve_spring_type_name(spring_type_key)
-    if member.override_spring_type:
-        spring_type_obj = member.override_spring_type
-    else:
-        spring_type_obj = SpringType.objects.filter(
-            is_active=True,
-            name__iexact=spring_name,
-        ).first()
-
-    if not spring_type_obj:
-        return None
-
-    return EquipmentCategory.objects.filter(
-        is_active=True,
-        size_type=size_type_obj,
-        spring_type=spring_type_obj,
-    ).first()
-
-
-def get_category_for_size_and_spring(size_category, spring_type_key):
-    """
-    Find the EquipmentCategory matching a given size category and spring type key.
-    Used for bookings/print views where we don't have a member object.
-
-    Args:
-        size_category: e.g. 'S', 'M', 'L', 'XL'
-        spring_type_key: e.g. 'standard', 'hd'
-
-    Returns:
-        EquipmentCategory instance or None
-    """
-    from equipment.models import EquipmentCategory
-
-    if not size_category:
-        return None
-
-    size_type_obj = SizeType.objects.filter(
-        is_active=True,
-        name=size_category,
-    ).first()
-    if not size_type_obj:
-        return None
-
-    spring_name = _resolve_spring_type_name(spring_type_key)
-    spring_type_obj = SpringType.objects.filter(
-        is_active=True,
-        name__iexact=spring_name,
-    ).first()
-    if not spring_type_obj:
-        return None
-
-    return EquipmentCategory.objects.filter(
-        is_active=True,
-        size_type=size_type_obj,
-        spring_type=spring_type_obj,
-    ).first()
 
 
 def get_equipment_requirements_display(member):
     """
     Get a human-readable description of member's equipment requirements.
-    Shows the EquipmentCategory name when available.
+    Shows the EquipmentCategory name.
 
     Args:
         member: Member object
 
     Returns:
-        dict with 'text' description and detailed components
+        dict with 'text' description and category
     """
-    if not member.shoe_size and not member.override_size_type:
+    if not member.shoe_size and not member.override_category:
         return {
             'text': "Schoenmaat onbekend",
             'category': None,
-            'size_category': None,
-            'spring_type': None,
             'shoe_size': None,
         }
 
-    size_category, spring_type = get_member_equipment_requirements(member)
-
-    # Try to find matching EquipmentCategory
     category = get_member_category(member)
 
     if category:
         text = category.name
     else:
-        # Fallback if no category matches
-        spring_desc = _resolve_spring_type_name(spring_type)
-        text = f"Maat {size_category} - {spring_desc} veer"
+        text = f"Geen categorie voor maat {member.shoe_size}"
 
-    # Mark if admin overrides are active
-    overrides = []
-    if member.override_size_type:
-        overrides.append('maat')
-    if member.override_spring_type:
-        overrides.append('veer')
-    if overrides:
-        text += f" [handmatig: {', '.join(overrides)}]"
+    # Mark if admin override is active
+    if member.override_category:
+        text += " [handmatig]"
 
     return {
         'text': text,
         'category': category,
-        'size_category': size_category,
-        'spring_type': spring_type,
         'shoe_size': member.shoe_size,
     }
 
 
-def check_equipment_availability(size_category, spring_type, count=1):
+def check_equipment_availability(category, count=1):
     """
-    Check if sufficient equipment is available for given requirements.
+    Check if sufficient equipment is available for a given category.
 
     Args:
-        size_category: Equipment size category ('S', 'M', 'L', 'XL')
-        spring_type: Spring type key ('standard', 'hd')
+        category: EquipmentCategory instance
         count: Number of equipment items needed
 
     Returns:
@@ -399,13 +261,17 @@ def check_equipment_availability(size_category, spring_type, count=1):
             - count: int (number available)
             - message: str
     """
-    from django.db.models import Q
-    size_q = Q(size=size_category) | Q(size_type__name=size_category)
-    base_q = Q(status='available') & size_q
-    spring_q = Q(**_spring_filter(spring_type)) | Q(spring_type__isnull=True)
-    available_equipment = Equipment.objects.filter(base_q & spring_q).distinct()
+    if not category:
+        return {
+            'available': False,
+            'count': 0,
+            'message': 'Geen categorie opgegeven'
+        }
 
-    available_count = available_equipment.count()
+    available_count = Equipment.objects.filter(
+        status='available',
+        category=category,
+    ).count()
 
     return {
         'available': available_count >= count,

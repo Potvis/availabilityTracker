@@ -191,7 +191,7 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Schoenmaat</span>
-                    <span class="detail-value">{{ booking.shoe_size }} ({{ booking.size_category }})</span>
+                    <span class="detail-value">{% if booking.equipment_category %}{{ booking.equipment_category.name }}{% else %}{{ booking.shoe_size }}{% endif %}</span>
                 </div>
             </div>
 

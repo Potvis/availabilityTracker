@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .forms import UserRegistrationForm, UserLoginForm, ProfileCompletionForm, QuickProfileUpdateForm
 from .models import UserProfile
-from equipment.assignment import get_equipment_requirements_display
+from equipment.assignment import get_equipment_requirements_display, get_member_category
 from django.utils import timezone
 from datetime import timedelta, date
 import calendar
@@ -353,20 +353,18 @@ def client_dashboard(request):
         messages.warning(request, 'Vul eerst uw profiel aan om sessies te kunnen boeken.')
         return redirect('accounts:profile_complete')
     
-    # Get member's size category, spring type, and boot category for filtering sessions
-    from equipment.assignment import get_member_equipment_requirements, get_member_category
-    size_category, spring_type_key = get_member_equipment_requirements(member)
+    # Get member's boot category for filtering sessions
     boot_category = get_member_category(member)
 
-    # Get active session schedules that have capacity for their size + spring type
+    # Get active session schedules that have capacity for the member's category
     all_active_schedules = SessionSchedule.objects.filter(
         is_active=True
     ).order_by('weekday', 'start_time')
 
-    # Filter to schedules that have capacity for this size and spring type
+    # Filter to schedules that have capacity for this category
     available_schedules = [
         s for s in all_active_schedules
-        if s.has_capacity_for_size(size_category, spring_type_key)
+        if s.has_capacity_for_category(boot_category)
     ]
 
     # Build set of already-booked session datetimes for this member
@@ -397,8 +395,8 @@ def client_dashboard(request):
         for i in range(num_weeks):
             next_occurrence = schedule.get_next_occurrence(current_date)
             if next_occurrence and schedule.is_booking_open(next_occurrence):
-                available_capacity = schedule.get_available_capacity_for_size(
-                    next_occurrence, size_category, spring_type_key
+                available_capacity = schedule.get_available_capacity_for_category(
+                    next_occurrence, boot_category
                 )
                 already_booked = next_occurrence in booked_datetimes
                 upcoming_sessions.append({
@@ -500,7 +498,6 @@ def client_dashboard(request):
         'past_sessions': past_sessions,
         'active_cards': active_cards,
         'equipment_requirements': equipment_req,
-        'size_category': size_category,
         'boot_category': boot_category,
         'upcoming_event_bookings': upcoming_event_bookings,
         'past_event_bookings': past_event_bookings,
@@ -538,18 +535,17 @@ def book_session(request, schedule_id):
         session_datetime_str = request.POST.get('session_datetime')
         session_datetime = timezone.datetime.fromisoformat(session_datetime_str)
 
-        # Get member's size category and spring type
-        from equipment.assignment import get_member_equipment_requirements
-        size_category, spring_type_key = get_member_equipment_requirements(member)
+        # Get member's boot category
+        boot_category = get_member_category(member)
 
         # Check if booking is open
         if not schedule.is_booking_open(session_datetime):
             messages.error(request, 'Deze sessie is niet meer beschikbaar voor boeking.')
             return redirect('accounts:client_dashboard')
 
-        # Check capacity for this size and spring type
-        if schedule.get_available_capacity_for_size(session_datetime, size_category, spring_type_key) <= 0:
-            messages.error(request, 'Deze sessie is vol voor uw schoenmaat.')
+        # Check capacity for this category
+        if schedule.get_available_capacity_for_category(session_datetime, boot_category) <= 0:
+            messages.error(request, 'Deze sessie is vol voor uw boot categorie.')
             return redirect('accounts:client_dashboard')
 
         # Check if already booked
@@ -571,7 +567,7 @@ def book_session(request, schedule_id):
             if active_cards.exists():
                 card = active_cards.first()
 
-        # Create attendance record with size category
+        # Create attendance record with equipment category
         attendance = SessionAttendance.objects.create(
             member=member,
             session_card=card,
@@ -580,7 +576,7 @@ def book_session(request, schedule_id):
             description=schedule.description,
             location=schedule.location,
             capacity=schedule.total_capacity,
-            size_category=size_category,
+            equipment_category=boot_category,
             created_by=request.user.username
         )
 
