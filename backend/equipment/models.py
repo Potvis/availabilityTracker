@@ -102,6 +102,16 @@ class EquipmentCategory(models.Model):
     def __str__(self):
         return self.name
 
+    def get_matching_equipment(self):
+        """Return Equipment queryset matching this category's component types."""
+        qs = Equipment.objects.filter(
+            size_type=self.size_type,
+            spring_type=self.spring_type,
+        )
+        if self.shell_type is not None:
+            qs = qs.filter(shell_type=self.shell_type)
+        return qs
+
 
 class Equipment(models.Model):
     STATUS_CHOICES = [
