@@ -414,18 +414,32 @@ class BusinessEvent(models.Model):
     def get_available_spots(self):
         """Get total available spots across all categories, based on equipment."""
         from equipment.models import EquipmentCategory, Equipment
-        from django.db.models import Count
+        from django.db.models import Count, Q
+
+        # Single query: count available equipment per category
+        equipment_per_cat = dict(
+            Equipment.objects.filter(status='available', category__is_active=True)
+            .values_list('category_id')
+            .annotate(cnt=Count('id'))
+            .values_list('category_id', 'cnt')
+        )
+
+        # Single query: count bookings per category for this event
+        booked_per_cat = dict(
+            self.event_bookings.filter(equipment_category__isnull=False)
+            .values_list('equipment_category_id')
+            .annotate(cnt=Count('id'))
+            .values_list('equipment_category_id', 'cnt')
+        )
 
         total_available = 0
-        categories = EquipmentCategory.objects.filter(is_active=True)
-        for cat in categories:
-            equipment_count = Equipment.objects.filter(
-                status='available', category=cat
-            ).count()
-            booked_count = self.event_bookings.filter(equipment_category=cat).count()
-            total_available += max(0, equipment_count - booked_count)
+        for cat_id, equip_count in equipment_per_cat.items():
+            booked_count = booked_per_cat.get(cat_id, 0)
+            total_available += max(0, equip_count - booked_count)
+
         if self.max_capacity is not None:
-            total_remaining = max(0, self.max_capacity - self.bookings_count)
+            total_booked = self.event_bookings.count()
+            total_remaining = max(0, self.max_capacity - total_booked)
             return min(total_available, total_remaining)
         return total_available
 
