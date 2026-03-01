@@ -561,6 +561,12 @@
                             {{ booking.session_date|date:"l j F Y" }} om {{ booking.session_date|date:"H:i" }}
                         </div>
                         <div style="font-size: 13px; color: #6b7280;">📍 {{ booking.location }}</div>
+                                            <div class="session-actions">
+                        <form method="post" action="{% url 'accounts:cancel_booking' booking.id %}" onsubmit="return confirm('Weet u zeker dat u deze boeking wilt annuleren?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">✗ Annuleren</button>
+                        </form>
+                    </div>
                     </div>
                     {% endfor %}
                 {% else %}
@@ -679,7 +685,7 @@
         </div>
         
         <!-- My Bookings -->
-        <div class="card" style="margin-bottom: 20px;">
+<!--    <div class="card" style="margin-bottom: 20px;">
             <h2>🎯 Mijn Boekingen</h2>
             {% if my_bookings or upcoming_event_bookings %}
             <div class="session-list">
@@ -736,7 +742,8 @@
             </div>
             {% endif %}
         </div>
-
+    -->
+        
         <!-- Past Sessions -->
         {% if past_sessions or past_event_bookings %}
         <div class="card">
