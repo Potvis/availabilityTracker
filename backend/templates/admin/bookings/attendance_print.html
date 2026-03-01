@@ -351,12 +351,11 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 50px;">#</th>
+                <th style="width: 30px;">#</th>
                 <th>Naam</th>
-                <th style="width: 150px;">Sessie Type</th>
-                <th style="width: 180px;">Kaart Type</th>
-                <th style="width: 100px; text-align: center;">Sessies Over</th>
-                <th style="width: 80px; text-align: center;">Handtekening</th>
+                <th style="width: 120px;">Boot Categorie</th>
+                <th style="width: 80px; text-align: center;">Sessies Over</th>
+                <th style="text-align: center;">Handtekening</th>
             </tr>
         </thead>
         <tbody>
@@ -371,17 +370,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    <span class="size-badge">{{ attendance.title }}</span>
-                </td>
-                <td>
-                    {% if attendance.session_card %}
-                        {{ attendance.session_card.card_type }}
-                        {% if attendance.session_card.is_trial %}
-                            <span class="trial-badge">OEFENBEURT</span>
-                        {% endif %}
-                    {% else %}
-                        <em style="color: #999;">Geen kaart</em>
-                    {% endif %}
+                    <span class="category-badge">{{ attendance.equipment_info.category_name }}</span>
                 </td>
                 <td style="text-align: center;">
                     {% if attendance.session_card %}
@@ -398,13 +387,13 @@
                         <em style="color: #999;">-</em>
                     {% endif %}
                 </td>
-                <td style="text-align: center; background-color: #f8f9fa;">
+                <td style="text-align: center; background-color: #f8f9fa; min-height: 40px;">
                     <!-- Empty cell for signature -->
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" style="text-align: center; color: #999; padding: 30px;">
+                <td colspan="5" style="text-align: center; color: #999; padding: 30px;">
                     Geen deelnemers gevonden
                 </td>
             </tr>

@@ -12,7 +12,7 @@ from equipment.assignment import get_category_from_shoe_size_and_weight
 class SessionScheduleAdmin(admin.ModelAdmin):
     list_display = [
         'weekday_time_display', 'title', 'start_date_display', 'end_date_display',
-        'max_capacity_display', 'equipment_capacities_display',
+        'equipment_capacities_display',
         'total_capacity_display', 'is_active_badge', 'booking_window_display'
     ]
     list_filter = ['is_active', 'weekday', 'location']
@@ -28,8 +28,8 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         ('Boekingsvenster', {
             'fields': ('booking_opens_days_before', 'booking_closes_hours_before')
         }),
-        ('Capaciteit & Geldigheid', {
-            'fields': ('max_capacity', 'start_date', 'end_date', 'is_active')
+        ('Geldigheid', {
+            'fields': ('start_date', 'end_date', 'is_active')
         }),
         ('Tracking', {
             'fields': ('created_by', 'created_at', 'updated_at'),
@@ -59,15 +59,6 @@ class SessionScheduleAdmin(admin.ModelAdmin):
         return format_html('<span style="color: gray;">Onbeperkt</span>')
     end_date_display.short_description = 'Einddatum'
     end_date_display.admin_order_field = 'end_date'
-
-    def max_capacity_display(self, obj):
-        if obj.max_capacity is not None:
-            return format_html(
-                '<span style="font-weight: bold;">{}</span>',
-                obj.max_capacity
-            )
-        return format_html('<span style="color: gray;">Auto</span>')
-    max_capacity_display.short_description = 'Max'
 
     def equipment_capacities_display(self, obj):
         capacities = SessionSchedule.get_equipment_capacities()
