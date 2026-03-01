@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from .schedule_models import BusinessEvent, BusinessEventBooking, Company
 from .forms import BusinessEventBookingForm
-from equipment.assignment import get_category_from_shoe_size_and_weight, get_all_categories_from_shoe_size_and_weight
+from equipment.assignment import get_category_from_shoe_size_and_weight
 from members.models import Member
 
 logger = logging.getLogger(__name__)
@@ -127,19 +127,13 @@ def event_booking_page(request, token):
                     'form': form,
                 })
 
-            # Find all matching equipment categories and pick the first with availability
-            compatible_categories = get_all_categories_from_shoe_size_and_weight(
+            # Find the best matching equipment category based on shoe size and weight
+            # (same logic as regular session bookings via get_member_category)
+            category = get_category_from_shoe_size_and_weight(
                 form.cleaned_data['shoe_size'],
                 form.cleaned_data.get('weight'),
             )
 
-            category = None
-            for cat in compatible_categories:
-                if event.can_book_for_category(cat):
-                    category = cat
-                    break
-
-            # Check category-specific equipment availability
             if not category:
                 return render(request, 'events/event_no_equipment.html', {
                     'event': event,
@@ -315,16 +309,12 @@ def company_events_page(request, token):
                     'booked_event_ids': booked_event_ids,
                 })
 
-            compatible_categories = get_all_categories_from_shoe_size_and_weight(
+            # Find the best matching equipment category based on shoe size and weight
+            # (same logic as regular session bookings via get_member_category)
+            category = get_category_from_shoe_size_and_weight(
                 form.cleaned_data['shoe_size'],
                 form.cleaned_data.get('weight'),
             )
-
-            category = None
-            for cat in compatible_categories:
-                if selected_event.can_book_for_category(cat):
-                    category = cat
-                    break
 
             if not category:
                 return render(request, 'events/event_no_equipment.html', {

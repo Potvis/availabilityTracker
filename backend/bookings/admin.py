@@ -2,7 +2,6 @@
 from . import schedule_admin
 
 from collections import Counter
-from datetime import datetime
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -18,53 +17,11 @@ from .utils import process_csv_import
 from equipment.assignment import get_member_category
 
 
-class SessionDateFilter(admin.SimpleListFilter):
-    """Custom date picker filter for session_date."""
-    title = 'Sessie Datum'
-    parameter_name = 'session_date_filter'
-    template = 'admin/bookings/date_filter.html'
-
-    def __init__(self, request, params, model, model_admin):
-        # Consume our custom date params before Django tries to use them as lookups
-        self.date_from = params.pop('date_from', None)
-        self.date_to = params.pop('date_to', None)
-        super().__init__(request, params, model, model_admin)
-
-    def lookups(self, request, model_admin):
-        return (
-            ('exact', 'Exacte datum'),
-        )
-
-    def queryset(self, request, queryset):
-        date_from = self.date_from or request.GET.get('date_from')
-        date_to = self.date_to or request.GET.get('date_to')
-
-        if date_from:
-            try:
-                dt_from = datetime.strptime(date_from, '%Y-%m-%d')
-                queryset = queryset.filter(session_date__date__gte=dt_from.date())
-            except ValueError:
-                pass
-
-        if date_to:
-            try:
-                dt_to = datetime.strptime(date_to, '%Y-%m-%d')
-                queryset = queryset.filter(session_date__date__lte=dt_to.date())
-            except ValueError:
-                pass
-
-        return queryset
-
-    def choices(self, changelist):
-        # Return empty iterator — we render custom HTML via the template
-        return []
-
-
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
     list_display = ['member_name_with_size', 'title', 'session_date', 'location',
                     'card_used', 'card_status', 'was_present_badge', 'import_date']
-    list_filter = [SessionDateFilter, 'location', 'title', 'card_session_used', 'was_present']
+    list_filter = ['location', 'title', 'card_session_used', 'was_present']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
     
