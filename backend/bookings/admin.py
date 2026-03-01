@@ -2,6 +2,7 @@
 from . import schedule_admin
 
 from collections import Counter
+from datetime import datetime
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -10,16 +11,54 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.utils import timezone as tz
 from .models import SessionAttendance, CSVImport
 from .forms import CSVImportForm
 from .utils import process_csv_import
 from equipment.assignment import get_member_category
 
+
+class SessionDateFilter(admin.SimpleListFilter):
+    """Custom date picker filter for session_date."""
+    title = 'Sessie Datum'
+    parameter_name = 'session_date_filter'
+    template = 'admin/bookings/date_filter.html'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('exact', 'Exacte datum'),
+        )
+
+    def queryset(self, request, queryset):
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+
+        if date_from:
+            try:
+                dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+                queryset = queryset.filter(session_date__date__gte=dt_from.date())
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+                queryset = queryset.filter(session_date__date__lte=dt_to.date())
+            except ValueError:
+                pass
+
+        return queryset
+
+    def choices(self, changelist):
+        # Return empty iterator — we render custom HTML via the template
+        return []
+
+
 @admin.register(SessionAttendance)
 class SessionAttendanceAdmin(admin.ModelAdmin):
-    list_display = ['member_name_with_size', 'title', 'session_date', 'location', 
+    list_display = ['member_name_with_size', 'title', 'session_date', 'location',
                     'card_used', 'card_status', 'was_present_badge', 'import_date']
-    list_filter = ['session_date', 'location', 'title', 'card_session_used', 'was_present']
+    list_filter = [SessionDateFilter, 'location', 'title', 'card_session_used', 'was_present']
     search_fields = ['member__email', 'member__first_name', 'member__last_name', 'title', 'location']
     date_hierarchy = 'session_date'
     

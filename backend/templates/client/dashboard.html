@@ -550,15 +550,25 @@
                 </div>
             </div>
             
-            <!-- Stats -->
+            <!-- Upcoming Bookings -->
             <div class="card">
-                <h2>📊 Statistieken</h2>
-                <div class="stat-value">{{ past_sessions|length }}</div>
-                <div class="stat-label">Sessies gevolgd</div>
-                <div style="margin-top: 20px;">
-                    <div class="stat-value" style="font-size: 24px;">{{ my_bookings|length }}</div>
-                    <div class="stat-label">Aankomende boekingen</div>
-                </div>
+                <h2>🎯 Aankomende Boekingen</h2>
+                {% if my_bookings %}
+                    {% for booking in my_bookings %}
+                    <div style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
+                        <div style="font-weight: 600; color: #333;">{{ booking.title }}</div>
+                        <div style="font-size: 14px; color: #667eea; font-weight: 500;">
+                            {{ booking.session_date|date:"l j F Y" }} om {{ booking.session_date|date:"H:i" }}
+                        </div>
+                        <div style="font-size: 13px; color: #6b7280;">📍 {{ booking.location }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state" style="padding: 20px 10px;">
+                        <div class="empty-state-icon">🎯</div>
+                        <p>Geen aankomende boekingen</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
         
@@ -632,7 +642,7 @@
                         <div>📍 {{ item.schedule.location }}</div>
                         <div>⏱️ {{ item.schedule.duration_minutes }} minuten</div>
                         <div class="capacity-indicator">
-                            <span>👥 {{ item.available_capacity }} van {{ item.schedule.max_capacity }} plaatsen vrij</span>
+                            <span>👥 {{ item.available_capacity }} plaatsen vrij</span>
                         </div>
                     </div>
                     {% if item.already_booked %}
@@ -807,7 +817,7 @@
         document.getElementById('modalDate').innerHTML = '📅 ' + dateStr + ' om ' + time;
         document.getElementById('modalLocation').innerHTML = '📍 ' + location;
         document.getElementById('modalDuration').innerHTML = '⏱️ ' + duration + ' minuten';
-        document.getElementById('modalCapacity').innerHTML = '👥 ' + capacity + ' van ' + maxCapacity + ' plaatsen vrij';
+        document.getElementById('modalCapacity').innerHTML = '👥 ' + capacity + ' plaatsen vrij';
 
         var btnContainer = document.getElementById('modalBookBtn');
         var cardOption = document.getElementById('modalCardOption');

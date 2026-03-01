@@ -108,16 +108,20 @@ class SessionSchedule(models.Model):
         if from_date is None:
             from_date = timezone.now().date()
 
-        # Find the next occurrence of this weekday
+        # Find the next occurrence of this weekday on or after from_date
         days_ahead = self.weekday - from_date.weekday()
-        if days_ahead <= 0:  # Target day already happened this week
+        if days_ahead < 0:  # Target day already happened this week
             days_ahead += 7
 
         next_date = from_date + timedelta(days=days_ahead)
 
-        # Check if it's within validity period
+        # If next_date is before start_date, find the first correct weekday
+        # on or after start_date
         if next_date < self.start_date:
-            next_date = self.start_date
+            days_ahead = self.weekday - self.start_date.weekday()
+            if days_ahead < 0:
+                days_ahead += 7
+            next_date = self.start_date + timedelta(days=days_ahead)
 
         if self.end_date and next_date > self.end_date:
             return None
