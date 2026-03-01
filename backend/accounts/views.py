@@ -394,19 +394,23 @@ def client_dashboard(request):
         current_date = now.date()
         for i in range(num_weeks):
             next_occurrence = schedule.get_next_occurrence(current_date)
-            if next_occurrence and schedule.is_booking_open(next_occurrence):
-                available_capacity = schedule.get_available_capacity_for_category(
-                    next_occurrence, boot_category
-                )
-                already_booked = next_occurrence in booked_datetimes
-                upcoming_sessions.append({
-                    'schedule': schedule,
-                    'datetime': next_occurrence,
-                    'available_capacity': available_capacity,
-                    'can_book': available_capacity > 0 and not already_booked,
-                    'already_booked': already_booked,
-                })
-            current_date = current_date + timedelta(days=7)
+            if next_occurrence:
+                if schedule.is_booking_open(next_occurrence):
+                    available_capacity = schedule.get_available_capacity_for_category(
+                        next_occurrence, boot_category
+                    )
+                    already_booked = next_occurrence in booked_datetimes
+                    upcoming_sessions.append({
+                        'schedule': schedule,
+                        'datetime': next_occurrence,
+                        'available_capacity': available_capacity,
+                        'can_book': available_capacity > 0 and not already_booked,
+                        'already_booked': already_booked,
+                    })
+                # Advance past this occurrence to find the next weekly one
+                current_date = next_occurrence.date() + timedelta(days=1)
+            else:
+                break  # No more occurrences for this schedule
     
     # Sort by datetime
     upcoming_sessions.sort(key=lambda x: x['datetime'])

@@ -481,3 +481,12 @@ class BusinessEventBooking(models.Model):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
+
+    def save(self, *args, **kwargs):
+        # Auto-assign equipment category from shoe size and weight if not set
+        if not self.equipment_category and self.shoe_size and self.weight:
+            from equipment.assignment import get_category_from_shoe_size_and_weight
+            self.equipment_category = get_category_from_shoe_size_and_weight(
+                self.shoe_size, self.weight
+            )
+        super().save(*args, **kwargs)

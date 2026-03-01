@@ -24,14 +24,20 @@ class SessionDateFilter(admin.SimpleListFilter):
     parameter_name = 'session_date_filter'
     template = 'admin/bookings/date_filter.html'
 
+    def __init__(self, request, params, model, model_admin):
+        # Consume our custom date params before Django tries to use them as lookups
+        self.date_from = params.pop('date_from', None)
+        self.date_to = params.pop('date_to', None)
+        super().__init__(request, params, model, model_admin)
+
     def lookups(self, request, model_admin):
         return (
             ('exact', 'Exacte datum'),
         )
 
     def queryset(self, request, queryset):
-        date_from = request.GET.get('date_from')
-        date_to = request.GET.get('date_to')
+        date_from = self.date_from or request.GET.get('date_from')
+        date_to = self.date_to or request.GET.get('date_to')
 
         if date_from:
             try:
