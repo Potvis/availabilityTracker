@@ -63,7 +63,7 @@ class BusinessEventBookingForm(forms.ModelForm):
             'placeholder': 'Bijv. 75.5',
             'step': '0.1'
         }),
-        help_text='Dit wordt enkel gebruikt om te bepalen welk type veer (standaard of HD) we voor u klaarzetten.'
+        help_text='Dit wordt enkel gebruikt om te bepalen welk type veer we voor u klaarzetten.'
     )
 
     # Optional account creation
@@ -101,8 +101,8 @@ class BusinessEventBookingForm(forms.ModelForm):
         shoe_size = self.cleaned_data.get('shoe_size')
         try:
             size_num = int(shoe_size)
-            if size_num < 25 or size_num > 55:
-                raise forms.ValidationError('Voer een geldige schoenmaat in (25-55).')
+            if size_num < 32 or size_num > 49:
+                raise forms.ValidationError('Voer een geldige schoenmaat in (32-49).')
         except (ValueError, TypeError):
             raise forms.ValidationError('Schoenmaat moet een getal zijn.')
         return shoe_size

@@ -103,5 +103,5 @@ def configure_admin():
     """Apply custom admin configuration."""
     admin.AdminSite.get_app_list = _custom_get_app_list
     admin.site.site_header = "Jump4Fun Beheer"
-    admin.site.site_title = "Kangoo Admin"
+    admin.site.site_title = "Jump4Fun Admin"
     admin.site.index_title = "Welkom bij Jump4Fun Beheer"

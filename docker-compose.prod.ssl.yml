@@ -56,8 +56,4 @@ networks:
   kangoo-network_beta:
     driver: bridge
   proxy:
-<<<<<<< Updated upstream
     external: true
-=======
-    external: true
->>>>>>> Stashed changes
