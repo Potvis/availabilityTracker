@@ -93,8 +93,8 @@ class UserRegistrationForm(UserCreationForm):
         shoe_size = self.cleaned_data.get('shoe_size')
         try:
             size_num = int(shoe_size)
-            if size_num < 25 or size_num > 55:
-                raise forms.ValidationError('Voer een geldige schoenmaat in (25-55).')
+            if size_num < 31 or size_num > 48:
+                raise forms.ValidationError('Voer een geldige schoenmaat in (31-48).')
         except (ValueError, TypeError):
             raise forms.ValidationError('Schoenmaat moet een getal zijn.')
         return shoe_size

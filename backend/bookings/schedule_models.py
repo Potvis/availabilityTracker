@@ -453,7 +453,7 @@ class BusinessEventBooking(models.Model):
         null=True,
         blank=True,
         verbose_name='Boot Categorie',
-        help_text='Kangoo Boot categorie voor deze boeking'
+        help_text='Boot categorie voor deze boeking'
     )
  
     # Optional link to member (if guest opted in for account creation)
